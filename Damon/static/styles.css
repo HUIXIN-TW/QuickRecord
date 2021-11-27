@@ -1,0 +1,185 @@
+nav .navbar-brand
+{
+    /* size for brand */
+    font-size: xx-large;
+}
+
+main .form-control
+{
+    /* Center form controls */
+    display: inline-block;
+
+    /* Override Bootstrap's 100% width for form controls */
+    width: auto;
+}
+
+main
+{
+    /* Scroll horizontally as needed */
+    overflow-x: auto;
+
+    /* Center contents */
+    text-align: center;
+}
+
+main img
+{
+    /* Constrain images on small screens */
+    max-width: 100%;
+}
+
+.amount
+{
+    font-weight: bold;
+}
+
+main table
+{
+    text-align: left;
+}
+
+
+/* Tim */
+.setting
+{
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    border: 1px solid;
+    width: 500px;
+    height: 60px;
+    color: #2e944b;
+    font-size:30px;
+}
+
+.icon
+{
+    position: absolute;
+    right: 225px;
+    top: 75px;
+    border: 1px solid;
+    width: 285px;
+    height: 225px;
+    color: #537fbe;
+    font-size:30px;
+}
+
+.num
+{
+    position: absolute;
+    right: 10px;
+    top: 75px;
+    border: 1px solid;
+    width: 205px;
+    height: 225px;
+    color: #537fbe;
+    font-size:30px;
+}
+
+.said
+{
+    position: absolute;
+    right: 10px;
+    top: 305px;
+    border: 1px solid;
+    width: 500px;
+    height: 345px;
+    color: #ea433b;
+    font-size:30px;
+}
+
+.main
+{
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    border: 1px solid;
+    width: 750px;
+    height: 640px;
+    color: #f5b82e;
+    font-size:30px;
+}
+
+#left
+{
+    position: absolute;
+    left: 250px;
+    bottom: 20px;
+}
+
+#right
+{
+    position: absolute;
+    left: 350px;
+    bottom: 20px;
+}
+
+#forward
+{
+    position: absolute;
+    left: 300px;
+    bottom: 70px;
+}
+
+#backward
+{
+    position: absolute;
+    left: 300px;
+    bottom: 20px;
+}
+
+#crawlup
+{
+    position: absolute;
+    left: 500px;
+    bottom: 70px;
+    width: 150px;
+}
+
+#crawldown
+{
+    position: absolute;
+    left: 500px;
+    bottom: 20px;
+    width: 150px;
+}
+
+.subsetting, .subicon, .subnum, .subsaid, .submain
+{
+    position: absolute;
+    left: 5px;
+    top: 5px;
+}
+
+#up_down
+{
+    position: absolute;
+    left: 130px;
+    top: 169px;
+    border: 1px solid;
+    width: 50px;
+    height: 50px;
+    color: #537fbe;
+}
+
+#forward_backward
+{
+    position: absolute;
+    left: 65px;
+    top: 169px;
+    border: 1px solid;
+    width: 50px;
+    height: 50px;
+    color: #537fbe;
+}
+
+#right_left
+{
+    position: absolute;
+    left: 0px;
+    top: 169px;
+    border: 1px solid;
+    width: 50px;
+    height: 50px;
+    color: #537fbe;
+}
