@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Add Cash
+{% endblock %}
+
+{% block main %}
+    <form action = "/add_friends" method= "post">
+        <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" name="username" placeholder="Friends To Add" type="text">
+        </div>
+            <button class="btn btn-primary" type="submit">Add Friends</button>
+    </form>
+
+{% endblock %}
