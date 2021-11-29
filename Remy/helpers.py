@@ -34,8 +34,8 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
-def lookup(symbol):
+#使用API的資料庫
+#def lookup(symbol):
     """Look up quote for symbol."""
 
     # Contact API
