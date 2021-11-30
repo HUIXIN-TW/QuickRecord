@@ -110,10 +110,23 @@ def add_friends():
             return apology("Friend already exised", 403)
         
         flash("Add Successfully!")
-        return render_template("friend_list.html")
+        return friend_list()
 
     else:
         return render_template("add_friends.html")
+
+#好友清單呈現
+@app.route("/friend_list")
+@login_required
+def friend_list():
+    """Show friend list"""
+    friends = db.execute("""
+        SELECT username 
+        FROM friends
+        WHERE user_id =:user_id
+    """, user_id=session["user_id"])
+
+    return render_template("friend_list.html", friends=friends)  
 
 ##############################################################################################
 ############################# 原始的頁面功能 ##################################################
