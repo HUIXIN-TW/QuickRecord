@@ -101,29 +101,28 @@ def add_friends():
                           username=request.form.get("username"))
         if len(rows) != 1:
             return apology("invalid username", 403)
-        #新增好友資料
-        db.execute("""INSERT INTO friends (user_id,username) VALUES (:user_id,:username) """,
+
+        #搜尋好友資料
+        rows_friend = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
+                          user_id = session["user_id"],
+                          username=request.form.get("username"))
+
+        #如果好友資料找不到，代表尚未新增
+        if len(rows_friend) != 1:
+
+            db.execute("""INSERT INTO friends (user_id,username) VALUES (:user_id,:username) """,
             user_id = session["user_id"],
             username=request.form.get("username")
             )
-        
-        #確認是否有重複新增好友
-        rows_friend = db.execute("SELECT username FROM friends WHERE username = :username",
-                          username=request.form.get("username"))
-        if len(rows_friend) != 1:
-            db.execute("""DELETE FROM friends WHERE username = :username """,
-            username=request.form.get("username"))
-            
-            db.execute("""INSERT INTO friends (user_id,username) VALUES (:user_id,:username) """,
-            user_id = session["user_id"],
-            username=request.form.get("username"))
+            flash("Add Successfully!")
+            return friend_list()
+        else:
             return apology("Friend already exised", 403)
-        
-        flash("Add Successfully!")
-        return friend_list()
-
+             
     else:
         return render_template("add_friends.html")
+
+
 
 #好友清單呈現
 @app.route("/friend_list")
