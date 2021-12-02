@@ -89,16 +89,23 @@ def add_cash():
 ###########################
 # 待修正問題
 ###########################
-# 資料庫中id皆為null
-# 資料庫好友圈未獨立 - 嘗試以判斷id方式修改
-# 朋友清單無法顯示friend_list.html
-
+# 資料庫中id皆為null - 修正v12.2
+# 資料庫好友圈未獨立 - 嘗試以判斷id方式修改 v12.2
+# 朋友清單無法顯示friend_list.html - 修正 before v12.2
 @app.route("/add_friends", methods=["GET", "POST"])
 @login_required
 def add_friends():
     if request.method == "POST":
-        rows = db.execute("SELECT username FROM users WHERE username = :username",
+        #是否在users database中
+        #在users database好友資料庫中搜尋username from /add_friends，且不得為自己
+        #取得使用者所輸入的add_frined.html中欄位的資料，username=request.form.get("username")
+        rows = db.execute("SELECT username, id FROM users WHERE username = :username AND id != :id",
+                          id = session["user_id"],
                           username=request.form.get("username"))
+               
+        #確認users database是否有該成員
+        #找到資料 >>> [{'usersname': 'zzz'}]
+        #找不到資料 >>> []
         if len(rows) != 1:
             return apology("invalid username", 403)
 
@@ -106,22 +113,21 @@ def add_friends():
         rows_friend = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
                           user_id = session["user_id"],
                           username=request.form.get("username"))
-
-        #如果好友資料找不到，代表尚未新增
+        #如果好友資料找不到，代表尚未新增           
         if len(rows_friend) != 1:
-
+            #用自己的id搭配好友名稱(好友名稱已UNIQUE)
             db.execute("""INSERT INTO friends (user_id,username) VALUES (:user_id,:username) """,
             user_id = session["user_id"],
             username=request.form.get("username")
             )
             flash("Add Successfully!")
             return friend_list()
+        #好友已存在friend database中
         else:
             return apology("Friend already exised", 403)
-             
+    # request.method == "GET"         
     else:
         return render_template("add_friends.html")
-
 
 
 #好友清單呈現
@@ -197,21 +203,25 @@ def index():
 # 更改buy
 # 同步修改借貸方transaction db
 # 將現金換成其他資產
+# 是否使用者自己一個資料庫
+# 可以發現沒有科目並詢問是否直接加入
+# 歷史交易保存
 @app.route("/buy", methods=["GET", "POST"])
 @login_required
 def buy():
     """記錄一筆分錄"""
     #POST 記錄一筆分錄
     if request.method == "POST":
-        # 若無輸入accountname
-        find_missing_errors = is_provided("accountname") or is_provided("amount")
+        # 若無輸入accountname or amount
+        find_missing_errors = is_provided("debit") or is_provided("credit") or is_provided("amount")
         if find_missing_errors:
             return find_missing_errors
         # 若amount不是金額
         elif not request.form.get("amount").isdigit():
             return apology("invalid amount, please enter 0-9")
         # 轉換變數
-        accountname = request.form.get("accountname").upper()
+        debit = request.form.get("debit").upper()
+        credit = request.form.get("credit").upper()
         amount = int(request.form.get("amount"))
         
         # lookup 在helper function中
@@ -220,46 +230,73 @@ def buy():
         #if stock is None:
             #return apology("invalid symbol")
             
-        # 從資料庫拉出貸方科目金額
-        rows = db.execute("SELECT cash FROM users WHERE id=:id", id=session["user_id"])
-        cash = rows[0]["cash"]
+        ################
+        # 確認是否有該科目
+        ################
         
-        # 更新貸方科目
-        # 確認貸方是否足夠，不必確認借方科目
-        # 禁止借方科目為負
-        updated_cash = cash - amount
-        if updated_cash < 0:
-            return apology("cannot afford")
         
-        # 更新貸方金額
-        # 目前僅使用現金
-        db.execute("UPDATE users SET cash =:updated_cash WHERE id=:id", 
-                updated_cash=updated_cash, 
-                id=session["user_id"])
         #############
         # 更新借方金額
         #############
+        # 從資料庫拉出借方科目金額
+        row = db.execute("SELECT EXPENSE FROM users WHERE id=:id", id=session["user_id"])
+        debitamount = row[0]['expense']
+        # 確認借方是否足夠，不必確認借方科目
+        # 禁止借方科目為負
+        updated_debitamount = debitamount + amount
+        if updated_debitamount < 0:
+            return apology("account cannot be negative")
+        # 更新金額
+        db.execute("UPDATE users SET expense = :updated_debitamount WHERE id=:id", 
+                updated_debitamount=updated_debitamount, 
+                id=session["user_id"])
         
+        #############
+        # 更新貸方金額
+        #############
+        credit = db.execute("SELECT ACCOUNT_PAYABLE FROM users WHERE id=:id", id=session["user_id"])
+        creditamount = credit[0]['account_payable']
+        # 確認貸方是否足夠，不必確認借方科目
+        # 禁止貸方科目為負
+        updated_creditamount = creditamount + amount
+        # 使用呼叫其資料庫餘額方式，確認該為正還是負
+        #if updated_creditamount < 0:
+            #return apology("account cannot be negative")
+        # 更新金額
+        db.execute("UPDATE users SET account_payable =:updated_creditamount WHERE id=:id", 
+                updated_creditamount=updated_creditamount, 
+                id=session["user_id"])       
         
-        
-        # 加入交易分錄
+        ################
+        # 加入歷史交易分錄
+        ################
         # 需新增借貸方
-        db.execute(""" 
-            INSERT INTO transactions
-                (user_id, accountname, amount) 
-            VALUES (:user_id, :accountname, :amount)
-            """,
-                user_id = session["user_id"],
-                accountname = accountname,
-                amount = amount
-            )
-        flash("Bought!")
+        # db.execute(""" 
+            #INSERT INTO transactions
+                #(user_id, debit, credit, amount) 
+            #VALUES (:user_id, :debit, :credit, :amount)
+            #""",
+                #user_id = session["user_id"],
+                #debit = debit,
+                #credit = credit,
+                #amount = amount
+            #)
+        flash("Good Accountant!")
         return redirect("/")
      
     else:
         return render_template("buy.html")
 
-
+#增加現金
+#屬於收入
+#現金
+#  XX收入
+###########################
+# 待修正問題
+###########################
+# 更改sell
+# 同步修改借貸方transaction db
+# 將現金換成其他資產
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
