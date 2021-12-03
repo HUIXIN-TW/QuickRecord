@@ -162,35 +162,49 @@ def friend_list():
 @app.route("/")
 @login_required
 def index():
-    #最後呈現的資料總結
+    # 最後呈現的資料總結
     # 我們需要在使用者登入後，於首頁顯示使用者目前持有的股票訊息
     # 先從資料庫內抓取該名使用者過去購買過的股票、股票張數
+    
+    # 修改為會計科目
     rows = db.execute("""
-        SELECT symbol, SUM(shares) as totalShares
-        FROM transactions
+        SELECT type, name, SUM(amount) as totalamount, note
+        FROM account
         WHERE user_id = :user_id
-        GROUP BY symbol
-        HAVING totalShares >0;
+        GROUP BY name
+        HAVING totalamount >0;
     """, user_id=session["user_id"])
     holdings = []
-    grand_total = 0
+    grand_asset = 0
+    grand_liability = 0
+    grand_revenue = 0
+    grand_expense = 0
     # 把使用者過去購買的股票名稱(Symbol)、公司名稱、張數、目前價格、該股票總金額丟入一個list裡
     for row in rows:
-        stock = "TEST"
         #stock = lookup(row["symbol"])
         holdings.append({
-            "symbol": stock["symbol"],
-            "name": stock["name"],
-            "shares": row["totalShares"],
-            "price": usd(stock["price"]),
-            "total": usd(stock["price"] * row["totalShares"])
+            "type": row["type"],
+            "name": row["name"],
+            "totalamount": row["totalamount"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"price": usd(stock["price"]),
+            #"total": usd(stock["price"] * row["totalShares"])
         })
-        grand_total += stock["price"] * row["totalShares"]
-    rows = db.execute("SELECT cash FROM users WHERE id=:user_id", user_id=session["user_id"])
-    cash = rows[0]["cash"]
-    # 另外加總使用者目前手頭上的現金及股票總價值
-    grand_total += cash
-    return render_template("index.html", holdings=holdings, cash=usd(cash), grand_total=usd(grand_total))
+        #資產負債總額
+        if type == "A":
+            grand_asset += row["totalamount"]
+        elif type == "L":
+            grand_liability += row["totalamount"]
+        elif type == "R":
+            grand_revenue += row["totalamount"]
+        else: # type == "E":
+            grand_expense += row["totalamount"]          
+    balance = 0
+    profit = 0
+    balance = grand_asset - grand_liability
+    profit = grand_revenue - grand_expense
+    return render_template("index.html", holdings=holdings, balance=balance, profit=profit)
 
 
 #減少現金
@@ -206,6 +220,36 @@ def index():
 # 是否使用者自己一個資料庫
 # 可以發現沒有科目並詢問是否直接加入
 # 歷史交易保存
+
+# 新增會計科目
+@app.route("/add_account", methods=["GET", "POST"])
+@login_required
+def add_account():
+    if request.method == "POST":
+        # 搜尋account資料
+        rows = db.execute("SELECT name FROM account WHERE name = :name AND user_id = :user_id",
+                          user_id = session["user_id"],
+                          name=request.form.get("name"))
+
+        #如果account資料找不到，代表尚未新增           
+        if len(rows) != 1:
+            #用自己的id搭配account名稱(account名稱已UNIQUE)
+            db.execute("""INSERT INTO account (user_id,type,name,note) VALUES (:user_id,:type,:name,:note) """,
+            user_id = session["user_id"],
+            type=request.form.get("type"),
+            name=request.form.get("name"),
+            note=request.form.get("note")
+            )
+            flash("Add Successfully!")
+            return index()
+        #account已存在account database中
+        else:
+            return apology("Account already exised", 403)
+    # request.method == "GET"         
+    else:
+        return render_template("add_account.html")
+        
+        
 @app.route("/buy", methods=["GET", "POST"])
 @login_required
 def buy():
@@ -220,8 +264,10 @@ def buy():
         elif not request.form.get("amount").isdigit():
             return apology("invalid amount, please enter 0-9")
         # 轉換變數
-        debit = request.form.get("debit").upper()
-        credit = request.form.get("credit").upper()
+        debittype=""
+        credittype=""
+        debit = request.form.get("debit")
+        credit = request.form.get("credit")
         amount = int(request.form.get("amount"))
         
         # lookup 在helper function中
@@ -233,39 +279,75 @@ def buy():
         ################
         # 確認是否有該科目
         ################
-        
+        ifdebit = db.execute("SELECT name, type FROM account WHERE name = :debit and user_id = :user_id",
+                          user_id = session["user_id"],
+                          debit=debit
+                          )
+        ifcredit = db.execute("SELECT name, type FROM account WHERE name = :credit and user_id = :user_id",
+                          user_id = session["user_id"],
+                          credit=credit
+                          )
+        print(ifdebit)
+        print(ifcredit)       
+        #確認account.db是否有該account
+        #找到資料 >>> [{'name': 'cash'}]
+        #找不到資料 >>> []
+        if len(ifdebit) != 1:
+            flash("please add new debit account")
+            return render_template("add_account.html")
+        if len(ifcredit) != 1:
+            flash("please add new credit account")
+            return render_template("add_account.html")
         
         #############
         # 更新借方金額
         #############
         # 從資料庫拉出借方科目金額
-        row = db.execute("SELECT EXPENSE FROM users WHERE id=:id", id=session["user_id"])
-        debitamount = row[0]['expense']
-        # 確認借方是否足夠，不必確認借方科目
+        rows_debit = db.execute("SELECT amount FROM account WHERE name = :debit and user_id=:user_id",
+                         user_id=session["user_id"],
+                         debit=debit
+                         )
+        print(rows_debit)
+        debittype = rows_debit[0]["type"]
+        debitamount = rows_debit[0]['amount']
+        # 確認借方是否足夠
         # 禁止借方科目為負
-        updated_debitamount = debitamount + amount
+        if debittype == "A" or debittype == "E":
+            updated_debitamount = debitamount + amount
+        else:
+            updated_debitamount = debitamount - amount
         if updated_debitamount < 0:
             return apology("account cannot be negative")
         # 更新金額
-        db.execute("UPDATE users SET expense = :updated_debitamount WHERE id=:id", 
+        db.execute("UPDATE acount SET amount = :updated_debitamount WHERE name = :debit, user_id=:user_id",
+                debit=debit,
                 updated_debitamount=updated_debitamount, 
-                id=session["user_id"])
+                user_idid=session["user_id"])
         
         #############
         # 更新貸方金額
         #############
-        credit = db.execute("SELECT ACCOUNT_PAYABLE FROM users WHERE id=:id", id=session["user_id"])
-        creditamount = credit[0]['account_payable']
-        # 確認貸方是否足夠，不必確認借方科目
+        rows_credit = db.execute("SELECT amount FROM account WHERE name = :credit and user_id=:user_id",
+                         user_id=session["user_id"],
+                         credit=credit
+                         )
+        print(rows_credit)
+        credittype = rows_credit[0]["type"]
+        creditamount = rows_credit[0]['amount']
+
+        # 確認貸方是否足夠
         # 禁止貸方科目為負
-        updated_creditamount = creditamount + amount
-        # 使用呼叫其資料庫餘額方式，確認該為正還是負
-        #if updated_creditamount < 0:
-            #return apology("account cannot be negative")
+        if credittype == "A" or credittype == "E":
+            updated_creditamount = creditamount - amount
+        else:
+            updated_creditamount = creditamount + amount
+        if updated_creditamount < 0:
+            return apology("account cannot be negative")
         # 更新金額
-        db.execute("UPDATE users SET account_payable =:updated_creditamount WHERE id=:id", 
+        db.execute("UPDATE acount SET amount = :updated_creditamount WHERE name = :credit, user_id=:user_id",
+                credit=credit,
                 updated_creditamount=updated_creditamount, 
-                id=session["user_id"])       
+                user_idid=session["user_id"])     
         
         ################
         # 加入歷史交易分錄
@@ -376,11 +458,7 @@ def history():
     for i in range(len(transactions)):
         transactions[i]["price"] = usd(transactions[i]["price"])
     return render_template("history.html", transactions=transactions)
-
-
-def is_provided(field):
-    if not request.form.get(field):
-        return apology(f"must provide {field}", 400)
+            
             
 # 搜尋股票價格
 # 修改搜尋科目餘額
@@ -405,6 +483,14 @@ def quote():
     else:
         return render_template("quote.html")
 
+
+###########################
+# 以下不必修改，保持原本code
+###########################
+# 類似helper function
+def is_provided(field):
+    if not request.form.get(field):
+        return apology(f"must provide {field}", 400)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

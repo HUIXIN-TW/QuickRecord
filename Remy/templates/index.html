@@ -1,17 +1,16 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Portfolio
+    My Accounts
 {% endblock %}
 
 {% block main %}
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>Symbol</th>
+                <th>Type</th>
                 <th>Name</th>
-                <th>Shares</th>
-                <th>Price</th>
+                <th>Amount</th>
                 <th>Total</th> 
             </tr>
 
@@ -19,22 +18,29 @@
         <tfoot>
             <tr>
                 <td colspan="4"></td>
-                <td>{{grand_total}}</td>
+                <td>{{grand_asset}}</td>
+                <td>{{grand_liability }}</td>
+                <td>{{grand_revenue}}</td>
+                <td>{{grand_expense}}</td>
             </tr>
         </tfoot>
         <tbody>
             {% for holding in holdings %}
             <tr>
-                <td>{{holding["symbol"]}}</td>
+                <td>{{holding["type"]}}</td>
                 <td>{{holding["name"]}}</td>
-                <td>{{holding["shares"]}}</td>
-                <td>{{holding["price"]}}</td>
+                <td>{{holding["totalamount"]}}</td>
+                <td>{{holding["note"]}}</td>
                 <td>{{holding["total"]}}</td>
             </tr>
             {% endfor %}
             <tr>
-                <td colspan="4"><em>CASH</em></td>
-                <td>{{cash}}</td>
+                <td colspan="4"><em>BALANCE</em></td>
+                <td>{{balance}}</td>
+            </tr>
+            <tr>
+            <td colspan="4"><em>PROFIT(LOSS)</em></td>
+            <td>{{profit}}</td>
             </tr>
         </tbody>
     </table>

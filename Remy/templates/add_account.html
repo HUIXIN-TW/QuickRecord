@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Add Account
+{% endblock %}
+
+{% block main %}
+    <form action = "/add_account" method= "post">
+        <div class="form-group">
+            <select name = "type">
+                <!-- 在py中使用list防止修改 -->
+                <option disabled selected value=""> Please select the type of account </option>
+                <option value="A"> Asset </option>
+                <option value="L"> Liability </option>
+                <option value="R"> Revenue </option>
+                <option value="E"> Expense </option>
+        </div>
+        <div class="form-group">
+        <input autocomplete="off" autofocus class="form-control" name="name" placeholder="Name To Add" type="text">
+        </div>
+        <div class="form-group">
+        <input autocomplete="off" autofocus class="form-control" name="note" placeholder="Note To Add" type="text">
+        </div>
+            <button class="btn btn-primary" type="submit">Add Account</button>
+    </form>
+
+{% endblock %}
