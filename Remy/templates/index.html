@@ -5,44 +5,68 @@
 {% endblock %}
 
 {% block main %}
+    <!--資產表-->
     <table class="table table-striped">
         <thead>
             <tr>
                 <th>Type</th>
                 <th>Name</th>
                 <th>Amount</th>
-                <th>Total</th> 
+                <th>Note</th> 
             </tr>
-
         </thead>
-        <tfoot>
-            <tr>
-                <td colspan="4"></td>
-                <td>{{grand_asset}}</td>
-                <td>{{grand_liability }}</td>
-                <td>{{grand_revenue}}</td>
-                <td>{{grand_expense}}</td>
-            </tr>
-        </tfoot>
         <tbody>
-            {% for holding in holdings %}
+            {% for A_balance in A_balances %}
             <tr>
-                <td>{{holding["type"]}}</td>
-                <td>{{holding["name"]}}</td>
-                <td>{{holding["totalamount"]}}</td>
-                <td>{{holding["note"]}}</td>
-                <td>{{holding["total"]}}</td>
+                <td>{{A_balance["type"]}}</td>
+                <td>{{A_balance["name"]}}</td>
+                <td>{{A_balance["amount"]}}</td>
+                <td>{{A_balance["note"]}}</td>
             </tr>
             {% endfor %}
+        </tbody>
+    </table>
+    <!--負債表-->
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Note</th>  
+            </tr>
+        </thead>
+        <tbody>
+            {% for L_balance in L_balances %}
+            <tr>
+                <td>{{L_balance["type"]}}</td>
+                <td>{{L_balance["name"]}}</td>
+                <td>{{L_balance["amount"]}}</td>
+                <td>{{L_balance["note"]}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!--總結-->
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th colspan="4">Type</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
             <tr>
                 <td colspan="4"><em>BALANCE</em></td>
                 <td>{{balance}}</td>
             </tr>
             <tr>
-            <td colspan="4"><em>PROFIT(LOSS)</em></td>
-            <td>{{profit}}</td>
+                <td colspan="4"><em>PROFIT(LOSS)</em></td>
+                <td>{{profit}}</td>
             </tr>
         </tbody>
     </table>
+    <!--收入表-->
+    <!--支出表-->
 
 {% endblock %}

@@ -6,8 +6,8 @@ from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
 from werkzeug.security import check_password_hash, generate_password_hash
-#利用helper作為外部customised library
-#可以至helper.py增加或刪減
+# 利用helper作為外部customised library
+# 可以至helper.py增加或刪減
 from helpers import apology, login_required, usd
 
 
@@ -47,47 +47,21 @@ app.jinja_env.filters["usd"] = usd
 app.config["SESSION_FILE_DIR"] = mkdtemp() #暫存資料夾
 app.config["SESSION_PERMANENT"] = False #session不會永久儲存，關閉將會消失
 app.config["SESSION_TYPE"] = "filesystem"
-Session(app) # 讓此程式可以使用flask_session，把user id儲存於cs50 IDE裡
+Session(app) #讓此程式可以使用flask_session，把user id儲存於cs50 IDE裡
 
 
 # Configure CS50 Library to use SQLite database
 # 配置CS50的SQL資料庫
 db = SQL("sqlite:///finance.db")
-# db = SQL("c:/Users/Huixin/OneDrive/桌面/CodeProject/OwnAccount/Remy/finance.db")
-
-
-# Make sure API key is set
-# 在環境裡引入外部API
-# 若不使用finance資料庫的股價應該不需要
-#if not os.environ.get("API_KEY"):
-    #raise RuntimeError("API_KEY not set")
 
 
 ##############################################################################################
 ######################### 自行定義的頁面功能 ##################################################
 ##############################################################################################
-
-
-# 作業8的新增功能
-@app.route("/add_cash", methods=["GET", "POST"])
-@login_required
-def add_cash():
-    if request.method == "POST":
-        db.execute(""" UPDATE users
-        SET cash = cash + :amount
-        WHERE id=:user_id
-        """, amount=request.form.get("cash"),
-        user_id = session["user_id"])
-        flash("Add Cash!")
-        return redirect("/")
-    else:
-        return render_template("add_cash.html")
     
     
-# 8/27 
-# 開始寫加好友的Code 
 ###########################
-# 待修正問題
+# 增加好友，待修正問題
 ###########################
 # 資料庫中id皆為null - 修正v12.2
 # 資料庫好友圈未獨立 - 嘗試以判斷id方式修改 v12.2
@@ -143,97 +117,109 @@ def friend_list():
 
     return render_template("friend_list.html", friends=friends)  
 
-##############################################################################################
-############################# 原始的頁面功能 ##################################################
-##############################################################################################
 
-
-# 首頁
+###########################
+# 首頁，待修正問題
+###########################
 # login_required函式是flask官方文件的建議寫法
 # 就是說要求進入網站時，會先檢查session的user_id，看需不需要登入，之後每個功能都需要登入，所以都要附上去
-# 此作業需要先在sqlite資料庫內，建立transactions表格
-# transactions表格的欄位有：id(設定為Primary Key), user_id, symbol(公司簡稱), shares(股票張數), price, transacted(購買時間，Default Value為CURRENT_TIMESTAMP)
 # 在templates裡面的index.html裡，製作一份表格，把這裡的欄位用迴圈方式丟入
-###########################
-# 待修正問題
-###########################
 # @app.route("/") - 修改總結呈現最後的資料彙總
-
 @app.route("/")
 @login_required
-def index():
-    # 最後呈現的資料總結
-    # 我們需要在使用者登入後，於首頁顯示使用者目前持有的股票訊息
-    # 先從資料庫內抓取該名使用者過去購買過的股票、股票張數
-    
-    # 修改為會計科目
+def index():   
+    # 篩選所有資料
     rows = db.execute("""
-        SELECT type, name, SUM(amount) as totalamount, note
+        SELECT type, name, amount, note
         FROM account
         WHERE user_id = :user_id
-        GROUP BY name
-        HAVING totalamount >0;
+        GROUP by name
+        HAVING amount >0;
     """, user_id=session["user_id"])
-    holdings = []
+    # 設定變數
+    A_balances = []
+    L_balances = []
+    R_balances = []
+    E_balances = []
     grand_asset = 0
     grand_liability = 0
     grand_revenue = 0
     grand_expense = 0
-    # 把使用者過去購買的股票名稱(Symbol)、公司名稱、張數、目前價格、該股票總金額丟入一個list裡
-    for row in rows:
-        #stock = lookup(row["symbol"])
-        holdings.append({
-            "type": row["type"],
-            "name": row["name"],
-            "totalamount": row["totalamount"],
-            "note" : row["note"]
-            #若需要匯率轉參考以下
-            #"price": usd(stock["price"]),
-            #"total": usd(stock["price"] * row["totalShares"])
-        })
-        #資產負債總額
-        if type == "A":
-            grand_asset += row["totalamount"]
-        elif type == "L":
-            grand_liability += row["totalamount"]
-        elif type == "R":
-            grand_revenue += row["totalamount"]
-        else: # type == "E":
-            grand_expense += row["totalamount"]          
     balance = 0
     profit = 0
+    # 把使用者過去交易儲存
+    for row in rows:
+        #資產負債總額
+        if row["type"] == "A":
+            A_balances.append({
+            "type": row["type"],
+            "name": row["name"],
+            "amount": row["amount"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_asset += row["amount"]
+        elif row["type"] == "L":
+            L_balances.append({
+            "type": row["type"],
+            "name": row["name"],
+            "amount": row["amount"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_liability += row["amount"]
+        elif row["type"] == "R":
+            R_balances.append({
+            "type": row["type"],
+            "name": row["name"],
+            "amount": row["amount"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_revenue += row["amount"]
+        else: # row["type"] == "E":
+            E_balances.append({
+            "type": row["type"],
+            "name": row["name"],
+            "amount": row["amount"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_expense += row["amount"]
+    print(rows)    
+    print(grand_asset)
+    print(grand_liability)
+    print(grand_revenue)
+    print(grand_expense)
     balance = grand_asset - grand_liability
     profit = grand_revenue - grand_expense
-    return render_template("index.html", holdings=holdings, balance=balance, profit=profit)
+    return render_template("index.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit)
 
-
-#減少現金
-#屬於支出
-#XX費用
-#  現金
 ###########################
-# 待修正問題
+# 新增會計科目，待修正問題
 ###########################
-# 更改buy
-# 同步修改借貸方transaction db
-# 將現金換成其他資產
-# 是否使用者自己一個資料庫
-# 可以發現沒有科目並詢問是否直接加入
-# 歷史交易保存
-
-# 新增會計科目
 @app.route("/add_account", methods=["GET", "POST"])
 @login_required
 def add_account():
     if request.method == "POST":
         # 搜尋account資料
-        rows = db.execute("SELECT name FROM account WHERE name = :name AND user_id = :user_id",
+        rows = db.execute("SELECT name, type FROM account WHERE name = :name AND user_id = :user_id",
                           user_id = session["user_id"],
                           name=request.form.get("name"))
-
+        # 確認是否來自於選單
+        if request.form.get("type") not in ["A", "L", "R", "E"]:
+            return apology("The Type Only Accept Asset, Liability, Revenue or Expense", 403)
         #如果account資料找不到，代表尚未新增           
         if len(rows) != 1:
-            #用自己的id搭配account名稱(account名稱已UNIQUE)
+            #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
             db.execute("""INSERT INTO account (user_id,type,name,note) VALUES (:user_id,:type,:name,:note) """,
             user_id = session["user_id"],
             type=request.form.get("type"),
@@ -241,7 +227,7 @@ def add_account():
             note=request.form.get("note")
             )
             flash("Add Successfully!")
-            return index()
+            return render_template("add_account.html")
         #account已存在account database中
         else:
             return apology("Account already exised", 403)
@@ -249,14 +235,17 @@ def add_account():
     else:
         return render_template("add_account.html")
         
-        
-@app.route("/buy", methods=["GET", "POST"])
+    
+###########################
+# 費用，待修正問題
+###########################
+# 歷史交易保存
+@app.route("/expense", methods=["GET", "POST"])
 @login_required
-def buy():
+def expense():
     """記錄一筆分錄"""
-    #POST 記錄一筆分錄
     if request.method == "POST":
-        # 若無輸入accountname or amount
+        # 若無輸入debit or credit or amount
         find_missing_errors = is_provided("debit") or is_provided("credit") or is_provided("amount")
         if find_missing_errors:
             return find_missing_errors
@@ -264,52 +253,44 @@ def buy():
         elif not request.form.get("amount").isdigit():
             return apology("invalid amount, please enter 0-9")
         # 轉換變數
-        debittype=""
-        credittype=""
         debit = request.form.get("debit")
         credit = request.form.get("credit")
         amount = int(request.form.get("amount"))
         
-        # lookup 在helper function中
-        # API尋找股市資料庫
-        #stock = lookup(symbol)
-        #if stock is None:
-            #return apology("invalid symbol")
-            
+        
         ################
         # 確認是否有該科目
         ################
-        ifdebit = db.execute("SELECT name, type FROM account WHERE name = :debit and user_id = :user_id",
-                          user_id = session["user_id"],
-                          debit=debit
-                          )
-        ifcredit = db.execute("SELECT name, type FROM account WHERE name = :credit and user_id = :user_id",
-                          user_id = session["user_id"],
-                          credit=credit
-                          )
-        print(ifdebit)
-        print(ifcredit)       
-        #確認account.db是否有該account
-        #找到資料 >>> [{'name': 'cash'}]
-        #找不到資料 >>> []
-        if len(ifdebit) != 1:
-            flash("please add new debit account")
-            return render_template("add_account.html")
-        if len(ifcredit) != 1:
-            flash("please add new credit account")
-            return render_template("add_account.html")
-        
-        #############
-        # 更新借方金額
-        #############
-        # 從資料庫拉出借方科目金額
-        rows_debit = db.execute("SELECT amount FROM account WHERE name = :debit and user_id=:user_id",
+        rows_debit = db.execute("SELECT type, name, amount FROM account WHERE name = :debit and user_id=:user_id",
                          user_id=session["user_id"],
                          debit=debit
                          )
+        rows_credit = db.execute("SELECT type, name, amount FROM account WHERE name = :credit and user_id=:user_id",
+                         user_id=session["user_id"],
+                         credit=credit
+                         )
         print(rows_debit)
+        print(rows_credit)            
+        #確認account.db是否有該account
+        #找到資料 >>> [{'name': 'cash'}]
+        #找不到資料 >>> []
+        if len(rows_debit) != 1:
+            flash("please add new debit account")
+            return render_template("add_account.html")
+        if len(rows_credit) != 1:
+            flash("please add new credit account")
+            return render_template("add_account.html")
+        
+        
+        #############
+        # 更新借貸金額
+        #############
+        # 從資料庫拉出借方科目金額
         debittype = rows_debit[0]["type"]
         debitamount = rows_debit[0]['amount']
+        # 從資料庫拉出貸方科目金額
+        credittype = rows_credit[0]["type"]
+        creditamount = rows_credit[0]['amount']
         # 確認借方是否足夠
         # 禁止借方科目為負
         if debittype == "A" or debittype == "E":
@@ -317,24 +298,7 @@ def buy():
         else:
             updated_debitamount = debitamount - amount
         if updated_debitamount < 0:
-            return apology("account cannot be negative")
-        # 更新金額
-        db.execute("UPDATE acount SET amount = :updated_debitamount WHERE name = :debit, user_id=:user_id",
-                debit=debit,
-                updated_debitamount=updated_debitamount, 
-                user_idid=session["user_id"])
-        
-        #############
-        # 更新貸方金額
-        #############
-        rows_credit = db.execute("SELECT amount FROM account WHERE name = :credit and user_id=:user_id",
-                         user_id=session["user_id"],
-                         credit=credit
-                         )
-        print(rows_credit)
-        credittype = rows_credit[0]["type"]
-        creditamount = rows_credit[0]['amount']
-
+            return apology("debit account cannot be negative")
         # 確認貸方是否足夠
         # 禁止貸方科目為負
         if credittype == "A" or credittype == "E":
@@ -342,43 +306,42 @@ def buy():
         else:
             updated_creditamount = creditamount + amount
         if updated_creditamount < 0:
-            return apology("account cannot be negative")
-        # 更新金額
-        db.execute("UPDATE acount SET amount = :updated_creditamount WHERE name = :credit, user_id=:user_id",
+            return apology("credit account cannot be negative")
+        # 更新借方金額
+        db.execute("UPDATE account SET amount = :updated_debitamount WHERE name = :debit and user_id=:user_id",
+                debit=debit,
+                updated_debitamount=updated_debitamount, 
+                user_id=session["user_id"])
+        # 更新貸方金額
+        db.execute("UPDATE account SET amount = :updated_creditamount WHERE name = :credit and user_id=:user_id",
                 credit=credit,
                 updated_creditamount=updated_creditamount, 
-                user_idid=session["user_id"])     
+                user_id=session["user_id"])     
+        
         
         ################
         # 加入歷史交易分錄
         ################
-        # 需新增借貸方
-        # db.execute(""" 
-            #INSERT INTO transactions
-                #(user_id, debit, credit, amount) 
-            #VALUES (:user_id, :debit, :credit, :amount)
-            #""",
-                #user_id = session["user_id"],
-                #debit = debit,
-                #credit = credit,
-                #amount = amount
-            #)
-        flash("Good Accountant!")
-        return redirect("/")
+        db.execute(""" 
+            INSERT INTO transactions
+                (user_id, debit, credit, amount, transacted) 
+            VALUES (:user_id, :debit, :credit, :amount)
+            """,
+                user_id = session["user_id"],
+                debit = debit,
+                credit = credit,
+                amount = amount
+            )
+        flash("You are a Good Accountant!")
+        return render_template("history.html")
      
     else:
-        return render_template("buy.html")
+        return render_template("expense.html")
 
-#增加現金
-#屬於收入
-#現金
-#  XX收入
-###########################
-# 待修正問題
-###########################
-# 更改sell
-# 同步修改借貸方transaction db
-# 將現金換成其他資產
+#################
+# 收入，待修正問題
+#################
+# 歷史交易保存
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
@@ -443,45 +406,52 @@ def sell():
         return render_template("sell.html", symbols=[row["symbol"] for row in rows])
  
  
-###########################
-# 待修正問題
-###########################
+#########
+# 歷史交易
+#########
 @app.route("/history")
 @login_required
 def history():
     """Show history of transactions"""
     transactions = db.execute("""
-        SELECT symbol, shares, price, transacted
+        SELECT debit, credit, amount, transacted
         FROM transactions
         WHERE user_id =:user_id
     """, user_id=session["user_id"])
     for i in range(len(transactions)):
-        transactions[i]["price"] = usd(transactions[i]["price"])
+        transactions[i]["amount"] = usd(transactions[i]["amount"])
     return render_template("history.html", transactions=transactions)
             
-            
-# 搜尋股票價格
+
+#################
 # 修改搜尋科目餘額
+#################          
 @app.route("/quote", methods=["GET", "POST"])
 @login_required
 def quote():
-    """Get stock quote."""
+    """Get account balance."""
     if request.method == "POST":
-        result_checks = is_provided("symbol")
+        result_checks = is_provided("name")
         if result_checks != None:
             return result_checks
-        symbol = request.form.get("symbol").upper()
-        stock = "TEST"
-        #stock = lookup(symbol)
-        if stock is None:
-            return apology("invalid symbol", 400)
-        return render_template("quoted.html", stockName={
-            'name': stock['name'],
-            'symbol': stock['symbol'],
-            'price': usd(stock['price'])
-        })
+        name = request.form.get("name")
+        rows_account = db.execute("SELECT type, name, amount FROM account WHERE name = :name and user_id=:user_id",
+                         user_id=session["user_id"],
+                         name=name
+                         )
+        print(rows_account)
+        type = rows_account[0]["type"]
+        amount = rows_account[0]['amount']
+        if len(rows_account) != 1:
+            flash("Account doesn't exist")
+            return render_template("quote.html")
+        return render_template("quoted.html", accountbalance={'type': type, 'name': name, 'amount': amount})
     else:
         return render_template("quote.html")
+
+##############################################################################################
+############################# 原始的頁面功能 ##################################################
+##############################################################################################
 
 
 ###########################
@@ -491,6 +461,7 @@ def quote():
 def is_provided(field):
     if not request.form.get(field):
         return apology(f"must provide {field}", 400)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

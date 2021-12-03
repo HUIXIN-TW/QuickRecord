@@ -2,10 +2,10 @@ import os
 import requests
 import urllib.parse
 
-from flask import redirect, render_template, request, session
+from flask import redirect, render_template, session
 from functools import wraps
 
-
+#錯誤資訊
 def apology(message, code=400):
     """Render message as an apology to user."""
     def escape(s):
@@ -21,6 +21,7 @@ def apology(message, code=400):
     return render_template("apology.html", top=code, bottom=escape(message)), code
 
 
+#確認是否登入
 def login_required(f):
     """
     Decorate routes to require login.
@@ -33,6 +34,12 @@ def login_required(f):
             return redirect("/login")
         return f(*args, **kwargs)
     return decorated_function
+
+
+#顯示金額格式
+def usd(value):
+    """Format value as USD."""
+    return f"${value:,.2f}"
 
 #使用API的資料庫
 #def lookup(symbol):
@@ -57,8 +64,3 @@ def login_required(f):
         }
     except (KeyError, TypeError, ValueError):
         return None
-
-
-def usd(value):
-    """Format value as USD."""
-    return f"${value:,.2f}"

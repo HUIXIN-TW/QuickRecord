@@ -1,11 +1,11 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Buy
+    Expense
 {% endblock %}
 
 {% block main %}
-    <form action="/buy" method="post">
+    <form action="/expense" method="post">
         <div class="form-group">
             <input autocomplete="off" placeholder="debit" class="form-control"  autofocus name="debit" type="text">
         </div>
@@ -15,6 +15,6 @@
          <div class="form-group">
             <input autocomplete="off" placeholder="amount" min="1" class="form-control"  name="amount" type="number">
         </div>
-        <button class="btn btn-primary" type="submit">Buy</button>
+        <button class="btn btn-primary" type="submit">Record</button>
     </form>
 {% endblock %}

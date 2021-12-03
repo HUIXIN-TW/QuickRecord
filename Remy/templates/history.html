@@ -8,18 +8,18 @@
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>Symbol</th>
-                <th>Shares</th>
-                <th>Price</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Amount</th>
                 <th>Transacted</th> 
              </tr>    
         </thead>
         <tbody>
             {% for transaction in transactions %}
             <tr>
-                <td>{{transaction["symbol"]}}</td>
-                <td>{{transaction["shares"]}}</td>
-                <td>{{transaction["price"]}}</td>
+                <td>{{transaction["debit"]}}</td>
+                <td>{{transaction["credit"]}}</td>
+                <td>{{transaction["amount"]}}</td>
                 <td>{{transaction["transacted"]}}</td>
             </tr>
             {% endfor %}
