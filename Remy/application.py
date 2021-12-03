@@ -154,7 +154,7 @@ def index():
             A_balances.append({
             "type": row["type"],
             "name": row["name"],
-            "amount": row["amount"],
+            "amount": usd(row["amount"]),
             "note" : row["note"]
             #若需要匯率轉參考以下
             #"rate": usd(row["rate"]),
@@ -165,7 +165,7 @@ def index():
             L_balances.append({
             "type": row["type"],
             "name": row["name"],
-            "amount": row["amount"],
+            "amount": usd(row["amount"]),
             "note" : row["note"]
             #若需要匯率轉參考以下
             #"rate": usd(row["rate"]),
@@ -176,7 +176,7 @@ def index():
             R_balances.append({
             "type": row["type"],
             "name": row["name"],
-            "amount": row["amount"],
+            "amount": usd(row["amount"]),
             "note" : row["note"]
             #若需要匯率轉參考以下
             #"rate": usd(row["rate"]),
@@ -187,7 +187,7 @@ def index():
             E_balances.append({
             "type": row["type"],
             "name": row["name"],
-            "amount": row["amount"],
+            "amount": usd(row["amount"]),
             "note" : row["note"]
             #若需要匯率轉參考以下
             #"rate": usd(row["rate"]),
@@ -256,6 +256,7 @@ def expense():
         debit = request.form.get("debit")
         credit = request.form.get("credit")
         amount = int(request.form.get("amount"))
+        note = request.form.get("note")
         
         
         ################
@@ -322,89 +323,23 @@ def expense():
         ################
         # 加入歷史交易分錄
         ################
+        
         db.execute(""" 
             INSERT INTO transactions
-                (user_id, debit, credit, amount) 
-            VALUES (:user_id, :debit, :credit, :amount)
+                (user_id, debit, credit, amount, note) 
+            VALUES (:user_id, :debit, :credit, :amount, :note)
             """,
                 user_id = session["user_id"],
                 debit = debit,
                 credit = credit,
-                amount = amount
+                amount = amount,
+                note = note
             )
         flash("You are a Good Accountant!")
-        return render_template("history.html")
+        return redirect("/history")
      
     else:
-        return render_template("expense.html")
-
-#################
-# 收入，待修正問題
-#################
-# 歷史交易保存
-@app.route("/sell", methods=["GET", "POST"])
-@login_required
-def sell():
-    """Sell shares of stock"""
-    if request.method == "POST":
-        print(request.form.get("symbol"))
-        find_missing_errors = is_provided("symbol") or is_provided("shares")
-        if find_missing_errors:
-            return find_missing_errors
-        elif not request.form.get("shares").isdigit():
-            return apology("invalid number of shares")
-        symbol = request.form.get("symbol").upper()
-        shares = int(request.form.get("shares"))
-        stock = "TEST"
-        #stock = lookup(symbol)
-        if stock is None:
-            return apology("invalid symbol")
-            
-        rows = db.execute("""
-            SELECT symbol, SUM(shares) as totalShares
-            FROM transactions
-            WHERE user_id=:user_id
-            GROUP BY symbol
-            HAVING totalShares >0;
-        """, user_id=session["user_id"])
-        for row in rows:
-            if row["symbol"] == symbol:
-                if shares > row["totalShares"]:
-                    return apology("too many shares")
-            
-        rows = db.execute("SELECT cash FROM users WHERE id=:id", id=session["user_id"])
-        cash = rows[0]["cash"]
-        
-        updated_cash = cash + shares * stock['price']
-        if updated_cash < 0:
-            return apology("cannot afford")
-        db.execute("UPDATE users SET cash =:updated_cash WHERE id=:id", 
-                updated_cash=updated_cash, 
-                id=session["user_id"]) 
-        db.execute(""" 
-            INSERT INTO transactions
-                (user_id, symbol, shares, price) 
-            VALUES (:user_id, :symbol, :shares, :price)
-            """,
-                user_id = session["user_id"],
-                symbol = stock["symbol"],
-                shares = -1 * shares,
-                price = stock["price"]
-            )
-        flash("Sold!")
-        return redirect("/")
-     
-    else:
-        rows = db.execute("""
-            SELECT symbol
-            FROM transactions
-            WHERE user_id = :user_id
-            GROUP BY symbol
-            HAVING SUM(shares) > 0;
-        """, user_id=session["user_id"])
-        
-        return render_template("sell.html", symbols=[row["symbol"] for row in rows])
- 
+        return render_template("expense.html") 
  
 #########
 # 歷史交易
@@ -414,7 +349,7 @@ def sell():
 def history():
     """Show history of transactions"""
     transactions = db.execute("""
-        SELECT debit, credit, amount, transacted
+        SELECT debit, credit, amount, transacted, note
         FROM transactions
         WHERE user_id =:user_id
     """, user_id=session["user_id"])
@@ -435,17 +370,18 @@ def quote():
         if result_checks != None:
             return result_checks
         name = request.form.get("name")
-        rows_account = db.execute("SELECT type, name, amount FROM account WHERE name = :name and user_id=:user_id",
+        rows_account = db.execute("SELECT type, name, amount, note FROM account WHERE name = :name and user_id=:user_id",
                          user_id=session["user_id"],
                          name=name
                          )
         print(rows_account)
         type = rows_account[0]["type"]
         amount = rows_account[0]['amount']
+        note = rows_account[0]["note"]
         if len(rows_account) != 1:
             flash("Account doesn't exist")
             return render_template("quote.html")
-        return render_template("quoted.html", accountbalance={'type': type, 'name': name, 'amount': amount})
+        return render_template("quoted.html", accountbalance={'type': type, 'name': name, 'amount': amount, 'note': note})
     else:
         return render_template("quote.html")
 

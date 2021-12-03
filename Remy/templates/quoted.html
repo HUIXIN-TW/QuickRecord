@@ -5,7 +5,22 @@
 {% endblock %}
 
 {% block main %}
-    <p>
-        {{accountbalance['type']}} {{accountbalance['name']}} Balance {{accountbalance['amount']}}.
-    </p>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Account Name</th>
+                <th>Amount</th>
+                <th>Note</th> 
+            </tr>    
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{accountbalance['type']}}</td>
+                <td>{{accountbalance['name']}}</td>
+                <td>{{accountbalance['amount']}}</td>
+                <td>{{accountbalance['note']}}</td>
+            </tr>
+        </tbody>
+    </table>
 {% endblock %}

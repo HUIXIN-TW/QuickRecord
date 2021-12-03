@@ -5,14 +5,13 @@
 {% endblock %}
 
 {% block main %}
-    <!--資產表-->
+    <!--資產負債表-->
     <table class="table table-striped">
         <thead>
             <tr>
                 <th>Type</th>
                 <th>Name</th>
                 <th>Amount</th>
-                <th>Note</th> 
             </tr>
         </thead>
         <tbody>
@@ -21,28 +20,13 @@
                 <td>{{A_balance["type"]}}</td>
                 <td>{{A_balance["name"]}}</td>
                 <td>{{A_balance["amount"]}}</td>
-                <td>{{A_balance["note"]}}</td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
-    <!--負債表-->
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Type</th>
-                <th>Name</th>
-                <th>Amount</th>
-                <th>Note</th>  
-            </tr>
-        </thead>
-        <tbody>
             {% for L_balance in L_balances %}
             <tr>
                 <td>{{L_balance["type"]}}</td>
                 <td>{{L_balance["name"]}}</td>
                 <td>{{L_balance["amount"]}}</td>
-                <td>{{L_balance["note"]}}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -51,8 +35,8 @@
     <table class="table table-striped">
         <thead>
             <tr>
-                <th colspan="4">Type</th>
-                <th>Amount</th>
+                <th colspan="4"></th>
+                <th>Total Amount</th>
             </tr>
         </thead>
         <tbody>
