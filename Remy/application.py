@@ -199,9 +199,10 @@ def index():
     print(grand_liability)
     print(grand_revenue)
     print(grand_expense)
-    balance = grand_asset - grand_liability
-    profit = grand_revenue - grand_expense
+    balance = usd(grand_asset - grand_liability)
+    profit = usd(grand_revenue - grand_expense)
     return render_template("index.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit)
+
 
 ###########################
 # 新增會計科目，待修正問題
@@ -210,21 +211,40 @@ def index():
 @login_required
 def add_account():
     if request.method == "POST":
+        # 確認是否來自於選單
+        if request.form.get("type") not in ["A", "L", "R", "E"]:
+            return apology("The Type Only Accept Asset, Liability, Revenue or Expense", 403)
+        # 若無輸入name, amount or note
+        find_missing_errors = is_provided("name") or is_provided("amount") or is_provided("amount")
+        if find_missing_errors:
+            return find_missing_errors
+        # 若amount不是金額
+        elif not request.form.get("amount").isdigit():
+            return apology("invalid amount, please enter 0-9")
         # 搜尋account資料
         rows = db.execute("SELECT name, type FROM account WHERE name = :name AND user_id = :user_id",
                           user_id = session["user_id"],
                           name=request.form.get("name"))
-        # 確認是否來自於選單
-        if request.form.get("type") not in ["A", "L", "R", "E"]:
-            return apology("The Type Only Accept Asset, Liability, Revenue or Expense", 403)
+        # 是否共用會計科目
+        if request.form.get("share") != "":
+            # 搜尋好友資料
+            rows_friend = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
+                            user_id = session["user_id"],
+                            username=request.form.get("share"))
+            # 如果好友資料找不到，代表尚未新增         
+            if len(rows_friend) != 1:
+                return apology("Add friend first", 403)
+        
         #如果account資料找不到，代表尚未新增           
         if len(rows) != 1:
             #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
-            db.execute("""INSERT INTO account (user_id,type,name,note) VALUES (:user_id,:type,:name,:note) """,
+            db.execute("""INSERT INTO account (user_id,type,name,amount,note,share) VALUES (:user_id,:type,:name,:amount,:note,:share) """,
             user_id = session["user_id"],
             type=request.form.get("type"),
             name=request.form.get("name"),
-            note=request.form.get("note")
+            amount=request.form.get("amount"),
+            note=request.form.get("note"),
+            share=request.form.get("share")
             )
             flash("Add Successfully!")
             return render_template("add_account.html")
@@ -341,6 +361,7 @@ def expense():
     else:
         return render_template("expense.html") 
  
+ 
 #########
 # 歷史交易
 #########
@@ -376,7 +397,7 @@ def quote():
                          )
         print(rows_account)
         type = rows_account[0]["type"]
-        amount = rows_account[0]['amount']
+        amount = usd(rows_account[0]['amount'])
         note = rows_account[0]["note"]
         if len(rows_account) != 1:
             flash("Account doesn't exist")
@@ -384,6 +405,25 @@ def quote():
         return render_template("quoted.html", accountbalance={'type': type, 'name': name, 'amount': amount, 'note': note})
     else:
         return render_template("quote.html")
+
+#################
+# 修改搜尋科目餘額
+################# 
+@app.route("/quote", methods=["GET", "POST"])
+@login_required
+def message():
+    # html使用彈出視窗
+    # 顯示會計科目新增、變動、刪除、修改金額
+    # 詢問是否同意
+    # 若不同意發送新訊息給對方
+    # 若同意必須做分錄入帳
+    # 呼叫確認雙方餘額，顯示餘額相符
+    # 影響add_account、expense
+    if request.method == "POST":
+        return render_template("index.html")
+    else:
+        return render_template("index.html")
+
 
 ##############################################################################################
 ############################# 原始的頁面功能 ##################################################
