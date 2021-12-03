@@ -324,7 +324,7 @@ def expense():
         ################
         db.execute(""" 
             INSERT INTO transactions
-                (user_id, debit, credit, amount, transacted) 
+                (user_id, debit, credit, amount) 
             VALUES (:user_id, :debit, :credit, :amount)
             """,
                 user_id = session["user_id"],
