@@ -377,7 +377,35 @@ def history():
     for i in range(len(transactions)):
         transactions[i]["amount"] = usd(transactions[i]["amount"])
     return render_template("history.html", transactions=transactions)
-            
+
+###################
+# 圖像化資產負債Bar
+# #################
+@app.route("/quote_bar")
+@login_required
+def quote_bar():
+    """Show account list"""
+    labels  = db.execute("""
+        SELECT name, amount
+        FROM account
+        WHERE user_id =:user_id
+    """, user_id=session["user_id"])
+    
+    if len(labels) < 1:
+        flash("No data to show! Add journal first!")
+        return render_template("expense.html")
+
+    #搜尋最大值當作Bar Chart的高度
+    maxs = db.execute("""
+        SELECT MAX(amount) as amount
+        FROM account
+        WHERE user_id =:user_id
+    """, user_id=session["user_id"])
+
+    maxs = maxs[0]["amount"]
+
+    return render_template("quote_bar.html",title='Bar', maxs=maxs, labels=labels)
+        
 
 #################
 # 修改搜尋科目餘額
