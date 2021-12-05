@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Friend Management
+{% endblock %}
+
+{% block main %}
+    <form action = "/friend_management" method= "post">
+        <div class="form-group">
+            <select autofocus class="form-control" name = "functions">
+                <!-- 在py中使用list防止修改 -->
+                <option disabled selected value=""> Select functions </option>
+                <option value="add"> Add Friend </option>
+                <option value="list"> Friend List </option>
+            </select>
+        </div>
+
+            <button class="btn btn-primary" type="submit">Go</button>
+    </form>
+
+{% endblock %}

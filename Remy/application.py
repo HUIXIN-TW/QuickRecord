@@ -58,7 +58,23 @@ db = SQL("sqlite:///finance.db")
 ##############################################################################################
 ######################### 自行定義的頁面功能 ##################################################
 ##############################################################################################
-    
+
+
+#########################
+#合併新增好友及好友清單功能
+#########################
+@app.route("/friend_management",methods=["GET", "POST"])
+@login_required
+def friend_management():
+    if request.method == "POST":
+        print(request.form.get("functions"))
+
+        if request.form.get("functions") == "add":
+            return render_template("add_friends.html")
+        else:
+            return friend_list()
+    else:
+        return render_template("friend.html")
     
 ###########################
 # 增加好友，待修正問題
@@ -238,13 +254,14 @@ def add_account():
         #如果account資料找不到，代表尚未新增           
         if len(rows) != 1:
             #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
-            db.execute("""INSERT INTO account (user_id,type,name,amount,note,share) VALUES (:user_id,:type,:name,:amount,:note,:share) """,
+            db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:initial) """,
             user_id = session["user_id"],
             type=request.form.get("type"),
             name=request.form.get("name"),
             amount=request.form.get("amount"),
             note=request.form.get("note"),
-            share=request.form.get("share")
+            share=request.form.get("share"),
+            initial=request.form.get("amount")
             )
             flash("Add Successfully!")
             return render_template("add_account.html")
