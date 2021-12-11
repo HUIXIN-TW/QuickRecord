@@ -11,6 +11,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # 可以至helper.py增加或刪減
 from helpers import apology, login_required, usd
 
+# 新增日期功能
+import time
+
 
 # Configure application
 # python設定配置為flask
@@ -92,7 +95,7 @@ def index():
     profit = 0
     # 把使用者過去交易儲存
     for row in rows:
-        #資產負債總額
+        # 資產總額
         if row["type"] == "A":
             A_balances.append({
             "type": row["type"],
@@ -104,6 +107,7 @@ def index():
             #"exchange": usd(row["totalamount"] * row["rate"])
             })
             grand_asset += row["amount"]
+        # 負債總額
         elif row["type"] == "L":
             L_balances.append({
             "type": row["type"],
@@ -115,6 +119,7 @@ def index():
             #"exchange": usd(row["totalamount"] * row["rate"])
             })
             grand_liability += row["amount"]
+        # 收入總額
         elif row["type"] == "R":
             R_balances.append({
             "type": row["type"],
@@ -126,7 +131,7 @@ def index():
             #"exchange": usd(row["totalamount"] * row["rate"])
             })
             grand_revenue += row["amount"]
-        else: # row["type"] == "E":
+        else: # row["type"] == "E": 費用總額
             E_balances.append({
             "type": row["type"],
             "name": row["name"],
@@ -137,14 +142,14 @@ def index():
             #"exchange": usd(row["totalamount"] * row["rate"])
             })
             grand_expense += row["amount"]
-    print("使用者歷史交易")
-    print(rows)    
-    print(grand_asset)
-    print(grand_liability)
-    print(grand_revenue)
-    print(grand_expense)
+    # 計算剩餘價值
     balance = usd(grand_asset - grand_liability)
+    # 計算結餘
     profit = usd(grand_revenue - grand_expense)
+    print("Now Running index()")
+    print("使用者所有歷史交易 {rows}".format(rows=rows))   
+    print("資產總額 {grand_asset}, 負債總額 {grand_liability}, 收入總額 {grand_revenue} 及費用總額 {grand_expense}".format(grand_asset=grand_asset, grand_liability=grand_liability, grand_revenue=grand_revenue, grand_expense=grand_expense))
+    print("剩餘價值 {balance}, 結餘 {profit}".format(balance=balance, profit=profit))
     return render_template("index.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit)
 
 
@@ -179,7 +184,7 @@ def add_account():
             if len(rows_friend) != 1:
                 return apology("Add friend first", 403)
         
-        #如果account資料找不到，代表尚未新增           
+        # 如果account資料找不到，代表尚未新增           
         if len(rows) != 1:
             #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
             db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:initial) """,
@@ -192,6 +197,8 @@ def add_account():
             initial=request.form.get("amount")
             )
             flash("Add Successfully!")
+            print("Now Running add_account()")
+            print("新增會計科目 {newaccount}".format(newaccount=request.form.get("name")))
             return render_template("add_account.html")
         #account已存在account database中
         else:
@@ -235,9 +242,8 @@ def journalentry():
                          user_id=session["user_id"],
                          credit=credit
                          )
-        print("確認是否有該科目")
-        print(rows_debit)
-        print(rows_credit)            
+        print("使用者會計科目資料庫搜尋結果")
+        print(rows_debit, rows_credit)            
         #確認account.db是否有該account
         #找到資料 >>> [{'name': 'cash'}]
         #找不到資料 >>> []
@@ -283,7 +289,10 @@ def journalentry():
         db.execute("UPDATE account SET amount = :updated_creditamount WHERE name = :credit and user_id=:user_id",
                 credit=credit,
                 updated_creditamount=updated_creditamount, 
-                user_id=session["user_id"])     
+                user_id=session["user_id"])
+        print("Now Running jornalentry() 更新會計科目資料庫餘額")
+        print("更新借方金額 {rows_debit}: {updated_debitamount}".format(rows_debit=rows_debit, updated_debitamount=updated_debitamount))
+        print("更新貸方金額 {rows_credit}: {updated_creditamount}".format(rows_credit=rows_credit, updated_creditamount=updated_creditamount))    
         
         
         ################
@@ -301,6 +310,7 @@ def journalentry():
                 note = note
             )
         flash("You are a Good Accountant!")
+        print("Now Running jornalentry() 成功加入歷史交易分錄")
         return redirect("/history")
     
     else:
@@ -319,8 +329,10 @@ def history():
         FROM transactions
         WHERE user_id =:user_id
     """, user_id=session["user_id"])
+    # 金額格式化
     for i in range(len(transactions)):
         transactions[i]["amount"] = usd(transactions[i]["amount"])
+    print("Now Running history() 成功查詢歷史交易分錄")
     return render_template("history.html", transactions=transactions)
 
 
@@ -331,31 +343,71 @@ def history():
 @login_required
 def balance():
     """Get account balance."""
+    # 是否在網頁中輸入會計科目
     if request.method == "POST":
         result_checks = is_provided("name")
         if result_checks != None:
             return result_checks
+        # 轉換變數
         name = request.form.get("name")
-        rows_account = db.execute("SELECT type, name, amount, note FROM account WHERE name = :name and user_id=:user_id",
+        date = request.form.get("date") + " 23:59:59"
+        today = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        print("Now Running balance() 正在讀取日期")
+        print("輸入日期 {date}".format(date=date))
+        print("現在日期 {today}".format(today=today))
+        # 查詢是否存在會計科目資料庫中，並取得現在的餘額
+        rows_account = db.execute("SELECT type, name, amount, initial, note FROM account WHERE name = :name and user_id=:user_id",
                          user_id=session["user_id"],
                          name=name
                          )
         if len(rows_account) != 1:
             return apology("invalid account", 403)
-        print("列印會計科目內容")
-        print(rows_account)
+        # 轉換變數
         type = rows_account[0]["type"]
-        amount = usd(rows_account[0]['amount'])
+        amount = rows_account[0]['amount']
+        initial = rows_account[0]['initial']
         note = rows_account[0]["note"]
-        return render_template("balance.html", accountbalance={'type': type, 'name': name, 'amount': amount, 'note': note})
+        print("Now Running balance() 成功查詢目前會計科目餘額")
+        print("{rows_account} on {date}".format(rows_account=rows_account, date=date))
+        print("{name} 起始: {initial} 餘額: {amount}".format(name=name, initial=initial, amount=amount))
+        
+        # 查詢歷史資料庫中的金額，累積借方及累積貸方，再加上初始值
+        d_transactions = db.execute("""SELECT sum(amount) as amount
+                                  FROM transactions
+                                  WHERE debit = :debit and user_id = :user_id and transacted <= :date""",
+                                  user_id=session["user_id"],
+                                  debit=name,
+                                  date=date
+                                  )
+        # 判斷是否有該科目，若沒有，抓金額只有None，金額則為零
+        if str(d_transactions[0]["amount"]) == 'None':
+            d_amount = 0
+        else:
+            d_amount = d_transactions[0]["amount"]
+        print("期末交易借方金額 {d_amount}".format(d_amount=d_amount))
+        
+        # 查詢歷史資料庫中的金額，累積借方及累積貸方，再加上初始值
+        c_transactions = db.execute("""SELECT sum(amount) as amount
+                                  FROM transactions
+                                  WHERE credit = :credit and user_id = :user_id and transacted <= :date""",
+                                  user_id=session["user_id"],
+                                  credit=name,
+                                  date=date)
+        if str(c_transactions[0]["amount"]) == "None":
+            c_amount = 0
+        c_amount = c_transactions[0]["amount"]
+        print("期末交易貸方金額 {c_amount}".format(c_amount=c_amount))
+        periodamount = usd(float(d_amount) + float(c_amount) + float(initial))
+        print("期末交易餘額 {periodamount}".format(periodamount=periodamount))
+        return render_template("balance.html", accountbalance={'type': type, 'name': name, 'amount': periodamount, 'note': note})
     else:        
         accountbalance = {'type': '', 'name': '', 'amount': '0.00', 'note': ''}
         return render_template("balance.html", accountbalance=accountbalance) 
 
 
-###################
+###############
 # 圖像化資產負債
-###################
+###############
 @app.route("/quote_bar")
 @login_required
 def quote_bar():
@@ -550,27 +602,13 @@ def friend():
             return render_template("friend.html", friends=friends, friendrequests=friendrequests) 
 
 
-    ####################################################################################################
-    ####################################################################################################
-    ####################################################################################################
-    # 在資料庫找狀態
-        # 拒絕，詢問是否重新發送
-        # 仍處理，已送出
-        # 沒有加過，開始處理
-        # Response(request.text,status=request.status_code,content_type=request.headers['content-type'])
-    ####################################################################################################
-    ####################################################################################################
-    ####################################################################################################
-
-
-#################
-#################
 #################
 # 修改會計科目餘
 #################
-#################
-#################
 # 尚未開始
+# 刪除會計科目，已做分錄不行刪
+# 刪除歷史交易
+# 刪除朋友
 @app.route("/balance", methods=["GET", "POST"])
 @login_required
 def test():
@@ -623,7 +661,7 @@ def login():
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
             return apology("invalid username and/or password", 400)
 
-        # Remember which user has logged in
+        # Remember which user has logged in, id and name
         session["user_id"] = rows[0]["id"]
         session["user_name"] = rows[0]["username"]
 

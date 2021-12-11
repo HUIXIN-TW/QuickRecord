@@ -8,6 +8,7 @@
     <form action="/balance" method="post">
         <div class="form-group">
             <input autocomplete="off" autofocus class="form-control" name="name" type="text">
+            <input autocomplete="off" autofocus class="form-control" name="date" type="date" value="2022-01-01">
         </div>
         <button class="btn btn-primary" type="submit">Check Balance</button>
     </form>
@@ -29,5 +30,5 @@
                 <td>{{accountbalance['note']}}</td>
             </tr>
         </tbody>
-    </table>    
+    </table>
 {% endblock %}
