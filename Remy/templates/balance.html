@@ -1,10 +1,17 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Quoted
+    Balance
 {% endblock %}
 
 {% block main %}
+    <form action="/balance" method="post">
+        <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" name="name" type="text">
+        </div>
+        <button class="btn btn-primary" type="submit">Check Balance</button>
+    </form>
+    <br></br>
     <table class="table table-striped">
         <thead>
             <tr>
@@ -18,9 +25,9 @@
             <tr>
                 <td>{{accountbalance['type']}}</td>
                 <td>{{accountbalance['name']}}</td>
-                <td>{{accountbalance['amount']}}</td>
+                <td id="amount">{{accountbalance['amount']}}</td>
                 <td>{{accountbalance['note']}}</td>
             </tr>
         </tbody>
-    </table>
+    </table>    
 {% endblock %}

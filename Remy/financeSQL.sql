@@ -11,3 +11,12 @@ create table account (
     amount numeric default 0,
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+drop table friends;
+create table friends (
+    id integer primary KEY,
+    user_id integer,
+    username text not null,
+    status text not null,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);

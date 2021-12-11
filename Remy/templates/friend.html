@@ -1,21 +1,59 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Friend Management
+    Add A New Friend
 {% endblock %}
 
 {% block main %}
-    <form action = "/friend_management" method= "post">
+    <form action = "/friend" method = "post">
         <div class="form-group">
-            <select autofocus class="form-control" name = "functions">
-                <!-- 在py中使用list防止修改 -->
-                <option disabled selected value=""> Select functions </option>
-                <option value="add"> Add Friend </option>
-                <option value="list"> Friend List </option>
-            </select>
+            <input autocomplete="off" autofocus class="form-control" name="username" placeholder="Friend Name" type="text">
         </div>
-
-            <button class="btn btn-primary" type="submit">Go</button>
+            <button class="btn btn-primary" type="submit">Add A New Friend</button>
     </form>
-
+    <br></br>
+    <div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                </tr>    
+            </thead>
+            <tbody>
+                {% for friend in friends %}
+                <tr>
+                    <td>{{friend["username"]}}</td>
+                    <td>{{friend["status"]}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <br></br>
+    <hr class="style-one-line" />
+    <br></br>
+    <div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Do You Know ...</th>
+                    <th>Accept or Reject ?</th>
+                </tr>    
+            </thead>
+            <tbody>
+                {% for friendrequest in friendrequests %}
+                <tr>
+                    <form action = "/acceptornot" method="post">
+                        <td>{{friendrequest["username"]}}</td>
+                        <td>
+                            <button name = "accept" value = "{{friendrequest['username']}}" type="submit" class="btn btn-success btn-sm">ACCEPT</button>
+                            <button name = "reject" value = "{{friendrequest['username']}}" type="submit" class="btn btn-secondary btn-sm">REJECT</button>
+                        </td>
+                    </form>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

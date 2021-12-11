@@ -6,6 +6,7 @@ from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
 from werkzeug.security import check_password_hash, generate_password_hash
+
 # 利用helper作為外部customised library
 # 可以至helper.py增加或刪減
 from helpers import apology, login_required, usd
@@ -60,83 +61,9 @@ db = SQL("sqlite:///finance.db")
 ##############################################################################################
 
 
-#########################
-#合併新增好友及好友清單功能
-#########################
-@app.route("/friend_management",methods=["GET", "POST"])
-@login_required
-def friend_management():
-    if request.method == "POST":
-        print(request.form.get("functions"))
-
-        if request.form.get("functions") == "add":
-            return render_template("add_friends.html")
-        else:
-            return friend_list()
-    else:
-        return render_template("friend.html")
-    
-###########################
-# 增加好友，待修正問題
-###########################
-# 資料庫中id皆為null - 修正v12.2
-# 資料庫好友圈未獨立 - 嘗試以判斷id方式修改 v12.2
-# 朋友清單無法顯示friend_list.html - 修正 before v12.2
-@app.route("/add_friends", methods=["GET", "POST"])
-@login_required
-def add_friends():
-    if request.method == "POST":
-        #是否在users database中
-        #在users database好友資料庫中搜尋username from /add_friends，且不得為自己
-        #取得使用者所輸入的add_frined.html中欄位的資料，username=request.form.get("username")
-        rows = db.execute("SELECT username, id FROM users WHERE username = :username AND id != :id",
-                          id = session["user_id"],
-                          username=request.form.get("username"))
-               
-        #確認users database是否有該成員
-        #找到資料 >>> [{'usersname': 'zzz'}]
-        #找不到資料 >>> []
-        if len(rows) != 1:
-            return apology("invalid username", 403)
-
-        #搜尋好友資料
-        rows_friend = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
-                          user_id = session["user_id"],
-                          username=request.form.get("username"))
-        #如果好友資料找不到，代表尚未新增           
-        if len(rows_friend) != 1:
-            #用自己的id搭配好友名稱(好友名稱已UNIQUE)
-            db.execute("""INSERT INTO friends (user_id,username) VALUES (:user_id,:username) """,
-            user_id = session["user_id"],
-            username=request.form.get("username")
-            )
-            flash("Add Successfully!")
-            return friend_list()
-        #好友已存在friend database中
-        else:
-            return apology("Friend already exised", 403)
-    # request.method == "GET"         
-    else:
-        return render_template("add_friends.html")
-
-
-#好友清單呈現
-@app.route("/friend_list")
-@login_required
-def friend_list():
-    """Show friend list"""
-    friends = db.execute("""
-        SELECT username 
-        FROM friends
-        WHERE user_id =:user_id
-    """, user_id=session["user_id"])
-
-    return render_template("friend_list.html", friends=friends)  
-
-
-###########################
+##################
 # 首頁，待修正問題
-###########################
+##################
 # login_required函式是flask官方文件的建議寫法
 # 就是說要求進入網站時，會先檢查session的user_id，看需不需要登入，之後每個功能都需要登入，所以都要附上去
 # 在templates裡面的index.html裡，製作一份表格，把這裡的欄位用迴圈方式丟入
@@ -210,6 +137,7 @@ def index():
             #"exchange": usd(row["totalamount"] * row["rate"])
             })
             grand_expense += row["amount"]
+    print("使用者歷史交易")
     print(rows)    
     print(grand_asset)
     print(grand_liability)
@@ -274,12 +202,12 @@ def add_account():
         
     
 ###########################
-# 費用，待修正問題
+# 分錄，待修正問題
 ###########################
 # 歷史交易保存
-@app.route("/expense", methods=["GET", "POST"])
+@app.route("/journalentry", methods=["GET", "POST"])
 @login_required
-def expense():
+def journalentry():
     """記錄一筆分錄"""
     if request.method == "POST":
         # 若無輸入debit or credit or amount
@@ -307,6 +235,7 @@ def expense():
                          user_id=session["user_id"],
                          credit=credit
                          )
+        print("確認是否有該科目")
         print(rows_debit)
         print(rows_credit)            
         #確認account.db是否有該account
@@ -360,7 +289,6 @@ def expense():
         ################
         # 加入歷史交易分錄
         ################
-        
         db.execute(""" 
             INSERT INTO transactions
                 (user_id, debit, credit, amount, note) 
@@ -374,9 +302,9 @@ def expense():
             )
         flash("You are a Good Accountant!")
         return redirect("/history")
-     
+    
     else:
-        return render_template("expense.html") 
+        return render_template("journalentry.html") 
  
  
 #########
@@ -395,9 +323,39 @@ def history():
         transactions[i]["amount"] = usd(transactions[i]["amount"])
     return render_template("history.html", transactions=transactions)
 
+
+#################
+# 搜尋科目餘額
+#################          
+@app.route("/balance", methods=["GET", "POST"])
+@login_required
+def balance():
+    """Get account balance."""
+    if request.method == "POST":
+        result_checks = is_provided("name")
+        if result_checks != None:
+            return result_checks
+        name = request.form.get("name")
+        rows_account = db.execute("SELECT type, name, amount, note FROM account WHERE name = :name and user_id=:user_id",
+                         user_id=session["user_id"],
+                         name=name
+                         )
+        if len(rows_account) != 1:
+            return apology("invalid account", 403)
+        print("列印會計科目內容")
+        print(rows_account)
+        type = rows_account[0]["type"]
+        amount = usd(rows_account[0]['amount'])
+        note = rows_account[0]["note"]
+        return render_template("balance.html", accountbalance={'type': type, 'name': name, 'amount': amount, 'note': note})
+    else:        
+        accountbalance = {'type': '', 'name': '', 'amount': '0.00', 'note': ''}
+        return render_template("balance.html", accountbalance=accountbalance) 
+
+
 ###################
-# 圖像化資產負債Bar
-# #################
+# 圖像化資產負債
+###################
 @app.route("/quote_bar")
 @login_required
 def quote_bar():
@@ -409,8 +367,8 @@ def quote_bar():
     """, user_id=session["user_id"])
     
     if len(labels) < 1:
-        flash("No data to show! Add journal first!")
-        return render_template("expense.html")
+        flash("No data to show! Create a Journal Entry first!")
+        return render_template("journalentry.html")
 
     #搜尋最大值當作Bar Chart的高度
     maxs = db.execute("""
@@ -422,48 +380,208 @@ def quote_bar():
     maxs = maxs[0]["amount"]
 
     return render_template("quote_bar.html",title='Bar', maxs=maxs, labels=labels)
+   
+
+###########################
+# 合併新增好友及好友清單功能
+###########################
+# 資料庫中id皆為null - 修正v12.2
+# 資料庫好友圈未獨立 - 嘗試以判斷id方式修改 v12.2
+# 朋友清單無法顯示friend_list.html - 修正 before v12.2
+    
+# helper function
+@app.route("/acceptornot", methods=['POST'])
+def acceptornot():
+    
+    if request.form.get("accept"):
+        friendname=request.form['accept']
+        print("ACCEPT")
+        print(friendname)
+    
+        # 自己加入
+        db.execute("""INSERT INTO friends (user_id,username,status) VALUES (:user_id,:username,:status)""",
+            user_id = session["user_id"],
+            username=friendname,
+            status='Accepted'
+            )
         
+        # 更新對方資料
+        friendid = db.execute("""SELECT id FROM users WHERE username = :friendname""",
+                            friendname=friendname)
+        print(friendid)
+        print(int(friendid[0]["id"]))
+        # 找出對方資料
+        update_status = "Accepted"
+        db.execute("UPDATE friends set status = :update_status WHERE user_id = :user_id and username = :username",
+            user_id=int(friendid[0]["id"]),
+            username=session["user_name"],
+            update_status=update_status
+            )
+        flash("Add Successfully!")
+        return friend()
 
-#################
-# 修改搜尋科目餘額
-#################          
-@app.route("/quote", methods=["GET", "POST"])
-@login_required
-def quote():
-    """Get account balance."""
-    if request.method == "POST":
-        result_checks = is_provided("name")
-        if result_checks != None:
-            return result_checks
-        name = request.form.get("name")
-        rows_account = db.execute("SELECT type, name, amount, note FROM account WHERE name = :name and user_id=:user_id",
-                         user_id=session["user_id"],
-                         name=name
-                         )
-        print(rows_account)
-        type = rows_account[0]["type"]
-        amount = usd(rows_account[0]['amount'])
-        note = rows_account[0]["note"]
-        if len(rows_account) != 1:
-            flash("Account doesn't exist")
-            return render_template("quote.html")
-        return render_template("quoted.html", accountbalance={'type': type, 'name': name, 'amount': amount, 'note': note})
     else:
-        return render_template("quote.html")
+        friendname=request.form['reject']
+        print("REJECT")
+        print(friendname)
+        
+        # 更新對方資料
+        friendid = db.execute("""SELECT id FROM users WHERE username = :friendname""",
+                            friendname=friendname)
+        print(friendid)
+        print(int(friendid[0]["id"]))
+           
+        # 找出對方資料
+        update_status = "Rejected"
+        db.execute("UPDATE friends set status = :update_status WHERE user_id = :user_id and username = :username",
+            user_id=int(friendid[0]["id"]),
+            username=session["user_name"],
+            update_status=update_status
+            )
+        db.execute("DELETE friends WHERE user_id = :user_id AND status = :update_status",
+                   user_id=int(friendid[0]["id"]),
+                   update_status=update_status
+                   )
+                   
+        flash("Removed!")
+        return friend()
+
+
+@app.route("/friend", methods=["GET", "POST"])
+@login_required
+def friend():
+    if request.method == "POST":
+        # 將加入的好友
+        friendname = request.form.get("username")
+ 
+        #不可加自己為好友
+        if friendname == session["user_name"]:
+            return apology("cannot add yourself", 403)
+        
+        #是否在users database中
+        rows = db.execute("""SELECT username FROM users WHERE username = :friendname""",
+                          friendname=friendname)
+        
+        #確認users database是否有該成員
+        print("確認users database是否有該成員")
+        print(rows)
+        if len(rows) != 1:
+            return apology("invalid username", 403)
+        
+        #是否在自己的friends database中
+        rows_friend = db.execute("SELECT username, status FROM friends WHERE user_id = :user_id AND username = :friendname",
+                          user_id=session["user_id"],
+                          friendname=friendname
+                          )
+        
+        
+        #如果好友資料找不到，代表尚未新增
+        print("如果好友資料找不到，代表尚未新增")
+        print(rows_friend)          
+        if len(rows_friend) < 1:
+            
+            # 自己將送出好友邀請
+            # 用自己的id搭配好友名稱(好友名稱已UNIQUE)
+            # 加入好友資料庫且status顯示requested
+            db.execute("""INSERT INTO friends (user_id,username,status) VALUES (:user_id,:username,:status) """,
+                user_id = session["user_id"],
+                username=friendname,
+                status='Requested'
+                )
+            """Show friend list"""
+            friends = db.execute("""
+                SELECT username, status 
+                FROM friends
+                WHERE user_id = :user_id
+            """, user_id=session["user_id"])
+            flash("Sent Successfully!")         
+            
+            
+            # 對方將收到好友邀請
+            # 注意：換角度思考 - 找自己的名字是否在別人的資料庫
+            """Show friendrequest list"""
+            friendrequests = db.execute("""
+                SELECT users.username
+                FROM friends
+                JOIN users
+                ON users.id=friends.user_id
+                WHERE friends.username =:username and friends.status = :status 
+            """, username=session["user_name"], status="Requested"
+            )
+            print("列印出哪些待核准朋友")            
+            print(friendrequests)
+            return render_template("friend.html", friends=friends, friendrequests=friendrequests)
+                    
+        #好友已存在friend database中
+        else:
+            return apology("Friend already exised or still pending", 403)
+    # request.method == "GET"         
+    else:
+        # 在下方直接顯示資料表
+        """Show friend list"""
+        friends = db.execute("""
+            SELECT username, status 
+            FROM friends
+            WHERE user_id =:user_id
+        """, user_id=session["user_id"])
+        print("列印出所有朋友")            
+        print(friends)
+        
+        # 對方將收到好友邀請
+        # 注意：換角度思考 - 找自己的名字是否在別人的資料庫
+        """Show friendrequest list"""
+        friendrequests = db.execute("""
+            SELECT users.username
+            FROM friends
+            JOIN users
+            ON users.id=friends.user_id
+            WHERE friends.username =:username and friends.status = :status 
+        """, username=session["user_name"], status="Requested"
+        )        
+        print("列印出哪些待核准朋友")            
+        print(friendrequests)
+        
+        # 若無好友資料
+        if len(friends) < 0:
+            friends = [{'username': 'NONE', 'status': 'Sent a friend request first'}]
+            return render_template("friend.html", friends=friends, friendrequests=friendrequests)
+        # 有好友資料，顯示好友資料
+        else:
+            return render_template("friend.html", friends=friends, friendrequests=friendrequests) 
+
+
+    ####################################################################################################
+    ####################################################################################################
+    ####################################################################################################
+    # 在資料庫找狀態
+        # 拒絕，詢問是否重新發送
+        # 仍處理，已送出
+        # 沒有加過，開始處理
+        # Response(request.text,status=request.status_code,content_type=request.headers['content-type'])
+    ####################################################################################################
+    ####################################################################################################
+    ####################################################################################################
+
 
 #################
-# 修改搜尋科目餘額
-################# 
-@app.route("/quote", methods=["GET", "POST"])
+#################
+#################
+# 修改會計科目餘
+#################
+#################
+#################
+# 尚未開始
+@app.route("/balance", methods=["GET", "POST"])
 @login_required
-def message():
-    # html使用彈出視窗
-    # 顯示會計科目新增、變動、刪除、修改金額
-    # 詢問是否同意
-    # 若不同意發送新訊息給對方
-    # 若同意必須做分錄入帳
-    # 呼叫確認雙方餘額，顯示餘額相符
-    # 影響add_account、expense
+def test():
+    # 預期內容：
+        # html使用彈出視窗
+        # 顯示會計科目新增、變動、刪除、修改金額
+        # 詢問是否同意
+        # 若不同意發送新訊息給對方
+        # 若同意必須做分錄入帳
+        # 呼叫確認雙方餘額，顯示餘額相符
+        # 影響add_account、journalentry
     if request.method == "POST":
         return render_template("index.html")
     else:
@@ -507,6 +625,7 @@ def login():
 
         # Remember which user has logged in
         session["user_id"] = rows[0]["id"]
+        session["user_name"] = rows[0]["username"]
 
         # Redirect user to home page
         return redirect("/")

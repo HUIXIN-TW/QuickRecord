@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Journal Entry
+{% endblock %}
+
+{% block main %}
+    <form action="/journalentry" method="post">
+        <div class="form-group">
+            <input autocomplete="off" placeholder="Debit Account Name" class="form-control"  autofocus name="debit" type="text">
+        </div>
+        <div class="form-group">
+            <input autocomplete="off" placeholder="Credit Account Name" class="form-control"  autofocus name="credit" type="text">
+        </div>
+         <div class="form-group">
+            <input autocomplete="off" placeholder="Amount" min="1" class="form-control"  name="amount" type="number">
+        </div>
+        <div class="form-group">
+            <input autocomplete="off" placeholder="Note" class="form-control"  autofocus name="note" type="text">
+        </div>
+        <button class="btn btn-primary" type="submit">Record</button>
+        <div>
+            <a class="nav-link" href="/add_account">Need to create a new account first?</a>
+        </div>
+    </form>
+{% endblock %}
