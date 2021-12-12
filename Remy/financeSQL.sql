@@ -8,6 +8,7 @@ create table account (
     name text not null,
     share text,
     sharestatus text,
+    shareaccountid integer,
     note text,
     initial numeric default 0,
     amount numeric default 0,

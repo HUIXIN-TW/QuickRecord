@@ -100,52 +100,85 @@ def add_account():
         elif not request.form.get("amount").isdigit():
             return apology("invalid amount, please enter 0-9")
 
-        # 是否共用會計科目
-        share=request.form.get("share")
-        sharestatus='None' # 假設為None，不分享給其他人
-        rows=[]
-        name=""
-        if share != "": # 分享帳戶
-            # 搜尋好友資料
-            rows_friends = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
-                            user_id = session["user_id"],
-                            username=share)
-            # 如果好友資料找不到，代表尚未新增         
-            if len(rows_friends) != 1:
-                return apology("Add friend first", 403)
-            # 顯示等待回應
-            sharestatus='Wait for approval'
-            print("顯示等待回應，{sharestatus} from {share}".format(sharestatus=sharestatus, share=share))
-            
-            # 搜尋account資料
-            name = request.form.get("name") + "." + share
-            rows = db.execute("SELECT id, user_id, name, type, share, sharestatus, note, amount FROM account WHERE name = :name AND user_id = :user_id",
-                            user_id = session["user_id"],
-                            name = name)
-            print("搜尋分享會計科目 {rows}".format(rows=rows))
-            
-        else: #沒有分享帳戶
-            # 搜尋account資料
-            name = request.form.get("name")
-            rows = db.execute("SELECT id, user_id, name, type, share, sharestatus, note, amount FROM account WHERE name = :name AND user_id = :user_id",
-                            user_id = session["user_id"],
-                            name = name)
-            print("搜尋不分享會計科目 {rows}".format(rows=rows))
-                    
-        # 如果account資料找不到，代表尚未新增          
+        # 搜尋account資料
+        name = request.form.get("name")
+        rows = db.execute("SELECT id, user_id, name, type, share, sharestatus, note, amount FROM account WHERE name = :name AND user_id = :user_id",
+                        user_id = session["user_id"],
+                        name = name)
+        print("搜尋會計科目 {rows}, 若無資料代表將新增".format(rows=rows))
+        
+        # 如果account資料找不到，代表尚未新增，可開始新增          
         if len(rows) != 1:
+            
+            # 是否共用會計科目前置設定
+            share=request.form.get("share") # 分享給的好友名字
+            sharestatus='None' # 假設為None，不分享給其他人
+            
             #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
             db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,sharestatus,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:initial) """,
-            user_id = session["user_id"],
-            type=request.form.get("type"),
-            name=name,
-            amount=request.form.get("amount"),
-            note=request.form.get("note"),
-            share=share,
+            user_id = session["user_id"], # 目前使用者
+            type=request.form.get("type"), # 會計類別
+            name=name, # 會計科目
+            amount=request.form.get("amount"), # 輸入金額
+            note=request.form.get("note"), # 輸入附註
+            share=share, # 分享給的好友名字
             sharestatus=sharestatus, # 因為是否share with friend而不同狀態
-            initial=request.form.get("amount")
+            initial=request.form.get("amount") # 起始金額
             )
-            if share != "": # 分享帳戶
+            
+            if share != "": # 不等於空白代表分享該帳戶
+                # 搜尋好友資料
+                rows_friends = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
+                                user_id = session["user_id"],
+                                username=share)
+                
+                # 如果好友資料找不到，代表尚未新增         
+                if len(rows_friends) != 1:
+                    return apology("Add friend first", 403)
+                
+                # 搜尋好友id
+                friendid = db.execute("SELECT id FROM users WHERE name = :name",
+                    name=share,
+                    )
+                
+                # 修改分享狀態，顯示等待回應
+                sharestatus='Waiting for approval'
+                
+                # 搜尋自己會計科目id
+                accountid = db.execute("SELECT id FROM account WHERE name = :name and user_id=:user_id",
+                    name=name,
+                    user_id=session["user_id"]
+                    )
+                print("自己會計科目ID {accountid}".format(accountid=accountid))
+                
+                # 新增對方會計科目資料
+                db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,sharestatus,shareaccountid,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:shareaccountid,:initial) """,
+                user_id = friendid, # 對方使用者ID
+                type=request.form.get("type"), # 會計類別，可修改，待更新
+                name="Wait", # 會計科目，待更新
+                amount=request.form.get("amount"), # 輸入金額
+                note=request.form.get("note"), # 輸入附註，待更新
+                share=session["user_name"], # 輸入自己的名字
+                sharestatus="Fill the info", # 因為是否share with friend而不同狀態，對方待填寫
+                shareaccountid=accountid, # 填入自己的會計科目ID
+                initial=request.form.get("amount") # 起始金額
+                )
+                
+                # 搜尋對方會計科目id
+                shareaccountid = db.execute("SELECT id FROM account WHERE name = :name and user_id=:user_id and shareaccountid=:shareaccountid",
+                                            name="Wait",
+                                            shareaccountid=accountid,
+                                            user_id=friendid
+                )
+                print("對方會計科目ID {shareaccountid}".format(shareaccountid=shareaccountid))
+                    
+                # 更新該會計科目資料 
+                db.execute("UPDATE account SET share=:share, sharestatus:sharestatus, shareaccountid=;shareaccountid WHERE id=id",
+                           share=share,
+                           sharestatus=sharestatus,
+                           shareaccountid=shareaccountid,
+                           id=accountid)
+                print("顯示等待回應，{sharestatus} from {share}".format(sharestatus=sharestatus, share=share))                                
                 flash("Sent Successfully!")
             else: #不分享帳戶
                 flash("Add Successfully!")
@@ -159,7 +192,7 @@ def add_account():
     # request.method == "GET"         
     else:
         return render_template("add_account.html")
-        
+
     
 ###########################
 # 分錄，待修正問題
@@ -270,14 +303,14 @@ def journalentry():
                                        ON users.id=account.user_id
                                        WHERE account.user_id=:user_id and account.sharestatus=:sharestatus""",
                                        user_id=session["user_id"],
-                                       sharestatus="Wait for approval")
+                                       sharestatus="Waiting for approval")
         ask_approvalaccounts  = db.execute("""SELECT account.id, account.user_id, users.username, account.type, account.name, account.share, account.sharestatus, account.amount, account.note 
                                        FROM account
                                        JOIN users
                                        ON users.id=account.user_id
                                        WHERE account.share=:share and account.sharestatus=:sharestatus""",
                                        share=session["user_name"],
-                                       sharestatus="Wait for approval")
+                                       sharestatus="Waiting for approval")
         print("\n")
         print("------列印出所有要求授權的會計科目------")
         for ask_approvalaccount in ask_approvalaccounts:
