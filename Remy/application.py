@@ -13,6 +13,8 @@ from helpers import apology, login_required, usd
 
 # 新增日期功能
 import time
+import numpy as np
+import matplotlib.pyplot as plt #pip install matplotlib first
 
 
 # Configure application
@@ -74,82 +76,7 @@ db = SQL("sqlite:///finance.db")
 @app.route("/")
 @login_required
 def index():   
-    # 篩選所有資料
-    rows = db.execute("""
-        SELECT type, name, amount, note
-        FROM account
-        WHERE user_id = :user_id
-        GROUP by name
-        HAVING amount >0;
-    """, user_id=session["user_id"])
-    # 設定變數
-    A_balances = []
-    L_balances = []
-    R_balances = []
-    E_balances = []
-    grand_asset = 0
-    grand_liability = 0
-    grand_revenue = 0
-    grand_expense = 0
-    balance = 0
-    profit = 0
-    # 把使用者過去交易儲存
-    for row in rows:
-        # 資產總額
-        if row["type"] == "A":
-            A_balances.append({
-            "type": row["type"],
-            "name": row["name"],
-            "amount": usd(row["amount"]),
-            "note" : row["note"]
-            #若需要匯率轉參考以下
-            #"rate": usd(row["rate"]),
-            #"exchange": usd(row["totalamount"] * row["rate"])
-            })
-            grand_asset += row["amount"]
-        # 負債總額
-        elif row["type"] == "L":
-            L_balances.append({
-            "type": row["type"],
-            "name": row["name"],
-            "amount": usd(row["amount"]),
-            "note" : row["note"]
-            #若需要匯率轉參考以下
-            #"rate": usd(row["rate"]),
-            #"exchange": usd(row["totalamount"] * row["rate"])
-            })
-            grand_liability += row["amount"]
-        # 收入總額
-        elif row["type"] == "R":
-            R_balances.append({
-            "type": row["type"],
-            "name": row["name"],
-            "amount": usd(row["amount"]),
-            "note" : row["note"]
-            #若需要匯率轉參考以下
-            #"rate": usd(row["rate"]),
-            #"exchange": usd(row["totalamount"] * row["rate"])
-            })
-            grand_revenue += row["amount"]
-        else: # row["type"] == "E": 費用總額
-            E_balances.append({
-            "type": row["type"],
-            "name": row["name"],
-            "amount": usd(row["amount"]),
-            "note" : row["note"]
-            #若需要匯率轉參考以下
-            #"rate": usd(row["rate"]),
-            #"exchange": usd(row["totalamount"] * row["rate"])
-            })
-            grand_expense += row["amount"]
-    # 計算剩餘價值
-    balance = usd(grand_asset - grand_liability)
-    # 計算結餘
-    profit = usd(grand_revenue - grand_expense)
-    print("Now Running index()")
-    print("使用者所有歷史交易 {rows}".format(rows=rows))   
-    print("資產總額 {grand_asset}, 負債總額 {grand_liability}, 收入總額 {grand_revenue} 及費用總額 {grand_expense}".format(grand_asset=grand_asset, grand_liability=grand_liability, grand_revenue=grand_revenue, grand_expense=grand_expense))
-    print("剩餘價值 {balance}, 結餘 {profit}".format(balance=balance, profit=profit))
+    A_balances, L_balances, R_balances, E_balances, balance, profit = allaccount_gt0()
     return render_template("index.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit)
 
 
@@ -164,41 +91,64 @@ def add_account():
         if request.form.get("type") not in ["A", "L", "R", "E"]:
             return apology("The Type Only Accept Asset, Liability, Revenue or Expense", 403)
         # 若無輸入name, amount or note
-        find_missing_errors = is_provided("name") or is_provided("amount") or is_provided("amount")
+        find_missing_errors = is_provided("name") or is_provided("amount")
         if find_missing_errors:
             return find_missing_errors
         # 若amount不是金額
         elif not request.form.get("amount").isdigit():
             return apology("invalid amount, please enter 0-9")
-        # 搜尋account資料
-        rows = db.execute("SELECT name, type FROM account WHERE name = :name AND user_id = :user_id",
-                          user_id = session["user_id"],
-                          name=request.form.get("name"))
+
         # 是否共用會計科目
-        if request.form.get("share") != "":
+        share=request.form.get("share")
+        sharestatus='None' # 假設為None，不分享給其他人
+        rows=[]
+        name=""
+        if share != "": # 分享帳戶
             # 搜尋好友資料
-            rows_friend = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
+            rows_friends = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
                             user_id = session["user_id"],
-                            username=request.form.get("share"))
+                            username=share)
             # 如果好友資料找不到，代表尚未新增         
-            if len(rows_friend) != 1:
+            if len(rows_friends) != 1:
                 return apology("Add friend first", 403)
-        
-        # 如果account資料找不到，代表尚未新增           
+            # 顯示等待回應
+            sharestatus='Wait for approval'
+            print("顯示等待回應，{sharestatus} from {share}".format(sharestatus=sharestatus, share=share))
+            
+            # 搜尋account資料
+            name = request.form.get("name") + "." + share
+            rows = db.execute("SELECT id, user_id, name, type, share, sharestatus, note, amount FROM account WHERE name = :name AND user_id = :user_id",
+                            user_id = session["user_id"],
+                            name = name)
+            print("搜尋分享會計科目 {rows}".format(rows=rows))
+            
+        else: #沒有分享帳戶
+            # 搜尋account資料
+            name = request.form.get("name")
+            rows = db.execute("SELECT id, user_id, name, type, share, sharestatus, note, amount FROM account WHERE name = :name AND user_id = :user_id",
+                            user_id = session["user_id"],
+                            name = name)
+            print("搜尋不分享會計科目 {rows}".format(rows=rows))
+                    
+        # 如果account資料找不到，代表尚未新增          
         if len(rows) != 1:
             #用自己的id搭配account名稱(account名稱已UNIQUE，且分辦大小寫)
-            db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:initial) """,
+            db.execute("""INSERT INTO account (user_id,type,name,amount,note,share,sharestatus,initial) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:initial) """,
             user_id = session["user_id"],
             type=request.form.get("type"),
-            name=request.form.get("name"),
+            name=name,
             amount=request.form.get("amount"),
             note=request.form.get("note"),
-            share=request.form.get("share"),
+            share=share,
+            sharestatus=sharestatus, # 因為是否share with friend而不同狀態
             initial=request.form.get("amount")
             )
-            flash("Add Successfully!")
+            if share != "": # 分享帳戶
+                flash("Sent Successfully!")
+            else: #不分享帳戶
+                flash("Add Successfully!")
             print("Now Running add_account()")
-            print("新增會計科目 {newaccount}".format(newaccount=request.form.get("name")))
+            print("新增會計科目 {name}".format(name=name))
             return render_template("add_account.html")
         #account已存在account database中
         else:
@@ -314,8 +264,31 @@ def journalentry():
         return redirect("/history")
     
     else:
-        return render_template("journalentry.html") 
- 
+        A_balances, L_balances, R_balances, E_balances, balance, profit = allaccount_ge0()
+        wait_approvalaccounts  = db.execute("""SELECT account.id, account.user_id, users.username, account.type, account.name, account.share, account.sharestatus, account.amount, account.note 
+                                       FROM account
+                                       JOIN users
+                                       ON users.id=account.user_id
+                                       WHERE account.user_id=:user_id and account.sharestatus=:sharestatus""",
+                                       user_id=session["user_id"],
+                                       sharestatus="Wait for approval")
+        ask_approvalaccounts  = db.execute("""SELECT account.id, account.user_id, users.username, account.type, account.name, account.share, account.sharestatus, account.amount, account.note 
+                                       FROM account
+                                       JOIN users
+                                       ON users.id=account.user_id
+                                       WHERE account.share=:share and account.sharestatus=:sharestatus""",
+                                       share=session["user_name"],
+                                       sharestatus="Wait for approval")
+        print("\n")
+        print("------列印出所有要求授權的會計科目------")
+        for ask_approvalaccount in ask_approvalaccounts:
+            print(ask_approvalaccount)
+        print("\n")
+        print("------列印出所有請求授權的會計科目------")
+        for wait_approvalaccount in wait_approvalaccounts:
+            print(wait_approvalaccount)
+        return render_template("journalentry.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit, ask_approvalaccounts=ask_approvalaccounts, wait_approvalaccounts=wait_approvalaccounts)
+
  
 #########
 # 歷史交易
@@ -325,7 +298,7 @@ def journalentry():
 def history():
     """Show history of transactions"""
     transactions = db.execute("""
-        SELECT debit, credit, amount, transacted, note
+        SELECT *
         FROM transactions
         WHERE user_id =:user_id
     """, user_id=session["user_id"])
@@ -333,6 +306,7 @@ def history():
     for i in range(len(transactions)):
         transactions[i]["amount"] = usd(transactions[i]["amount"])
     print("Now Running history() 成功查詢歷史交易分錄")
+    print(transactions)
     return render_template("history.html", transactions=transactions)
 
 
@@ -395,10 +369,48 @@ def balance():
                                   date=date)
         if str(c_transactions[0]["amount"]) == "None":
             c_amount = 0
-        c_amount = c_transactions[0]["amount"]
+        else:
+            c_amount = c_transactions[0]["amount"]
         print("期末交易貸方金額 {c_amount}".format(c_amount=c_amount))
+        
+        # 總整交易金額
         periodamount = usd(float(d_amount) + float(c_amount) + float(initial))
         print("期末交易餘額 {periodamount}".format(periodamount=periodamount))
+        
+        # plot 借方、紅色
+        d_plot = db.execute("""SELECT amount, transacted
+                                FROM transactions
+                                WHERE debit = :debit and user_id = :user_id and transacted <= :date""",
+                                user_id=session["user_id"],
+                                debit=name,
+                                date=date
+                                )
+        print("PLOT")
+        print(d_plot)
+        d_amt=[]
+        d_trans=[]
+        for plot in d_plot:
+            d_amt.append(plot['amount'])
+            d_trans.append(plot['transacted'])
+        # plt.plot(d_trans, d_amt, 'o', color='blue')
+        
+        # plot 貸方、藍色
+        c_plot = db.execute("""SELECT amount, transacted
+                                FROM transactions
+                                WHERE credit = :credit and user_id = :user_id and transacted <= :date""",
+                                user_id=session["user_id"],
+                                credit=name,
+                                date=date
+                                )
+        #print("PLOT")
+        #print(c_plot)
+        c_amt=[]
+        c_trans=[]
+        for plot in c_plot:
+            c_amt.append(plot['amount'])
+            c_trans.append(plot['transacted'])
+        # plt.plot(c_trans, c_amt, 'o', color='blue')
+        
         return render_template("balance.html", accountbalance={'type': type, 'name': name, 'amount': periodamount, 'note': note})
     else:        
         accountbalance = {'type': '', 'name': '', 'amount': '0.00', 'note': ''}
@@ -440,14 +452,259 @@ def quote_bar():
 # 資料庫中id皆為null - 修正v12.2
 # 資料庫好友圈未獨立 - 嘗試以判斷id方式修改 v12.2
 # 朋友清單無法顯示friend_list.html - 修正 before v12.2
+  
+
+@app.route("/friend", methods=["GET", "POST"])
+@login_required
+def friend():
+    if request.method == "POST":
+        # 將加入的好友
+        friendname = request.form.get("username")
+ 
+        #不可加自己為好友
+        if friendname == session["user_name"]:
+            return apology("cannot add yourself", 403)
+        
+        #搜尋users database
+        rows_users = db.execute("""SELECT username FROM users WHERE username = :friendname""",
+                          friendname=friendname)
+        
+        #確認users database是否有該成員
+        print("確認users database是否有該成員")
+        print(rows_users)
+        if len(rows_users) != 1:
+            return apology("invalid username", 403)
+        
+        #搜尋自己的friends database
+        rows_friends = db.execute("SELECT username, status FROM friends WHERE user_id = :user_id AND username = :friendname",
+                          user_id=session["user_id"],
+                          friendname=friendname
+                          )    
+        
+        #如果好友資料找不到，代表尚未新增
+        print("如果好友資料找不到，代表尚未新增")
+        print(rows_friends)          
+        if len(rows_friends) < 1:
+            
+            # 自己將送出好友邀請
+            # 用自己的id搭配好友名稱(好友名稱已UNIQUE)
+            # 加入好友資料庫且status顯示requested
+            # 插入好友至自己的資料庫
+            db.execute("""INSERT INTO friends (user_id,username,status) VALUES (:user_id,:username,:status) """,
+                user_id = session["user_id"],
+                username=friendname,
+                status='Requested'
+                )
+            flash("Sent Successfully!") 
+            
+            # 好友清單顯示
+            acceptfriends, requestfriends, rejectfriends, friendrequests = friendlist()
+            return render_template("friend.html", acceptfriends=acceptfriends, requestfriends=requestfriends, rejectfriends=rejectfriends, friendrequests=friendrequests)
+                    
+        #好友已存在friend database中
+        else:
+            return apology("Friend already exised or still pending", 403)
+    # request.method == "GET"         
+    else:
+        # 好友清單顯示
+        acceptfriends, requestfriends, rejectfriends, friendrequests = friendlist()
+        return render_template("friend.html", acceptfriends=acceptfriends, requestfriends=requestfriends, rejectfriends=rejectfriends, friendrequests=friendrequests)
+
+
+##################
+# Helper Function
+##################
+# 預期內容：
+# 顯示會計科目新增、變動、刪除、修改金額
+# 呼叫確認雙方餘額，顯示餘額相符
+# 影響add_account、journalentry
+
+def allaccount_ge0():
+    # 篩選所有資料
+    rows = db.execute("""
+        SELECT id, type, name, amount, note, share, sharestatus
+        FROM account
+        WHERE user_id = :user_id
+        GROUP by name
+        HAVING amount >=0;
+    """, user_id=session["user_id"])
+    A_balances, L_balances, R_balances, E_balances, balance, profit = accountformat(rows) 
+    return (A_balances, L_balances, R_balances, E_balances, balance, profit)
+
+def allaccount_gt0():
+    # 篩選所有資料
+    rows = db.execute("""
+        SELECT id, type, name, amount, note, share, sharestatus
+        FROM account
+        WHERE user_id = :user_id
+        GROUP by name
+        HAVING amount > 0;
+    """, user_id=session["user_id"])
+    A_balances, L_balances, R_balances, E_balances, balance, profit = accountformat(rows)
+    return (A_balances, L_balances, R_balances, E_balances, balance, profit)
+
+
+def accountformat(rows):
+    # 設定變數
+    A_balances = []
+    L_balances = []
+    R_balances = []
+    E_balances = []
+    grand_asset = 0
+    grand_liability = 0
+    grand_revenue = 0
+    grand_expense = 0
+    balance = 0
+    profit = 0
+    # 把使用者過去交易儲存，需修改usd格式，故沒有直接append row
+    for row in rows:
+        # 資產總額
+        if row["type"] == "A":
+            A_balances.append({
+            "id": row['id'],
+            "type": row["type"],
+            "name": row["name"],
+            "amount": usd(row["amount"]),
+            "share": row["share"],
+            "sharestatus": row["sharestatus"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_asset += row["amount"]
+        # 負債總額
+        elif row["type"] == "L":
+            L_balances.append({
+            "id": row['id'],
+            "type": row["type"],
+            "name": row["name"],
+            "amount": usd(row["amount"]),
+            "share": row["share"],
+            "sharestatus": row["sharestatus"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_liability += row["amount"]
+        # 收入總額
+        elif row["type"] == "R":
+            R_balances.append({
+            "id": row['id'],
+            "type": row["type"],
+            "name": row["name"],
+            "amount": usd(row["amount"]),
+            "share": row["share"],
+            "sharestatus": row["sharestatus"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_revenue += row["amount"]
+        else: # row["type"] == "E": 費用總額
+            E_balances.append({
+            "id": row['id'],
+            "type": row["type"],
+            "name": row["name"],
+            "amount": usd(row["amount"]),
+            "share": row["share"],
+            "sharestatus": row["sharestatus"],
+            "note" : row["note"]
+            #若需要匯率轉參考以下
+            #"rate": usd(row["rate"]),
+            #"exchange": usd(row["totalamount"] * row["rate"])
+            })
+            grand_expense += row["amount"]
+    # 計算剩餘價值
+    balance = usd(grand_asset - grand_liability)
+    # 計算結餘
+    profit = usd(grand_revenue - grand_expense)
+    print("\n")
+    print("------Now Running index()------")
+    print("------使用者所有歷史交易------")
+    for row in rows:
+        print(row)
+    print("\n")
+    print("------使用者所有交易總結------")
+    print("資產總額 {grand_asset}, 負債總額 {grand_liability}, 收入總額 {grand_revenue} 及費用總額 {grand_expense}".format(grand_asset=grand_asset, grand_liability=grand_liability, grand_revenue=grand_revenue, grand_expense=grand_expense))
+    print("剩餘價值 {balance}, 結餘 {profit}".format(balance=balance, profit=profit))
+    return (A_balances, L_balances, R_balances, E_balances, balance, profit)
+
+
+@app.route("/approvalornot", methods=["GET", "POST"])
+@login_required
+def approvalornot():
+    if request.form.get("accept"):
+        accountdata=eval(request.form['accept'])
+        print("\n")
+        print("------ACCEPT------")
+        print(accountdata)
+        print(type(accountdata))
+        
+        sharestatus='Shared'
+        
+        # 自己加入
+        name=accountdata["name"].split(".")
+        name=name[-1] + "." + session["user_name"]
+        db.execute("""INSERT INTO account (user_id,type,name,share,sharestatus,note,initial,amount) 
+                   VALUES (:user_id,:type,:name,:share,:sharestatus,:note,:initial,:amount)""",
+                   user_id=session["user_id"],
+                   type=accountdata["type"],
+                   name=name,
+                   share=accountdata["username"],
+                   sharestatus=sharestatus,
+                   note=accountdata["note"],
+                   initial=accountdata["amount"],
+                   amount=accountdata["amount"]
+                   )    
+
+        # 找出對方資料
+        db.execute("UPDATE account set sharestatus = :sharestatus WHERE id = :id",
+            id=int(accountdata["id"]),
+            sharestatus=sharestatus
+            )
+        flash("Approved Successfully!")
+        return render_template("journalentry.html")
+
+    elif request.form.get("reject"):
+        accountdata=eval(request.form['reject'])
+        print("\n")
+        print("------REJECT------")
+        print(accountdata)
+        
+        sharestatus='Rejected'
+           
+        # 找出對方資料
+        db.execute("UPDATE account set sharestatus = :sharestatus WHERE id = :id",
+            id=int(accountdata["id"]),
+            sharestatus=sharestatus
+            )
+        
+        # 將對方資料刪除
+        db.execute("DELETE account WHERE id = :id",
+                   id=int(accountdata["id"]),
+                   sharestatus=sharestatus
+                   )
+        
+        flash("Removed!")
+        return render_template("journalentry.html")
+
+    else:
+        print("Check the status of shared account")
+        return render_template("journalentry.html")
     
-# helper function
-@app.route("/acceptornot", methods=['POST'])
+
+# helper function for friend()
+@app.route("/acceptornot", methods=["GET", "POST"])
+@login_required
 def acceptornot():
     
     if request.form.get("accept"):
         friendname=request.form['accept']
-        print("ACCEPT")
+        print("\n")
+        print("------ACCEPT------")
         print(friendname)
     
         # 自己加入
@@ -470,11 +727,12 @@ def acceptornot():
             update_status=update_status
             )
         flash("Add Successfully!")
-        return friend()
+        return render_template("friend.html")
 
     else:
         friendname=request.form['reject']
-        print("REJECT")
+        print("\n")
+        print("------REJECT------")
         print(friendname)
         
         # 更新對方資料
@@ -496,134 +754,145 @@ def acceptornot():
                    )
                    
         flash("Removed!")
-        return friend()
+    return render_template("friend.html")
+
+# helper function for friend()
+def friendlist():
+    # 列出所有好友的清單
+    """Show friend list"""
+    friends = db.execute("""
+        SELECT id, username, status 
+        FROM friends
+        WHERE user_id = :user_id
+    """, user_id=session["user_id"])        
+
+    # 分三類資料
+    # 自己的資料庫
+    acceptfriends=[]
+    requestfriends=[]
+    rejectfriends=[]
+    for friend in friends:
+        if friend['status'] == 'Accepted':
+            acceptfriends.append(friend)
+        elif friend['status'] == 'Requested':
+            requestfriends.append(friend)
+        elif friend['status'] == 'Reject':
+            rejectfriends.append(friend)
+        else:
+            username=friend['username']
+            print("Check the status of {username} friends").format(username=username)
+    print("\n")
+    print('------原始清單------')
+    print(friends)
+    print("\n")    
+    print('------已接受的朋友清單------')
+    print(acceptfriends)
+    print("\n")
+    print('------已送出朋友邀請------')
+    print(requestfriends)
+    print("\n")           
+    print('------已被拒絕的朋友------')
+    print(rejectfriends)            
 
 
-@app.route("/friend", methods=["GET", "POST"])
-@login_required
-def friend():
-    if request.method == "POST":
-        # 將加入的好友
-        friendname = request.form.get("username")
+    # 別人的資料庫
+    # 對方將收到好友邀請
+    # 注意：換角度思考 - 找自己的名字是否在別人的資料庫
+    """Show friendrequest list"""
+    friendrequests = db.execute("""
+        SELECT friends.id, users.username
+        FROM friends
+        JOIN users
+        ON users.id=friends.user_id
+        WHERE friends.username =:username and friends.status = :status 
+    """, username=session["user_name"], status="Requested"
+    )
+    print("\n")
+    print("------列印出哪些待核准朋友------")            
+    print(friendrequests)
+    return acceptfriends, requestfriends, rejectfriends, friendrequests 
+
+
+# helper function for delete items
+# 刪除會計科目，應該不會刪除掉交易紀錄，但是彙總或表格會變得很怪
+@app.route("/deleteaccount", methods=["GET", "POST"])
+def deleteaccount():
+    if  request.form.get("delete"):
+        accountid=request.form['delete']
+        print("\n")
+        print("------DELETE ACCOUNT------")
+        print(accountid)  
+        
+        # 該會計科目是否與他人共享
+        share = db.execute("""
+            SELECT share
+            FROM account
+            WHERE id =:accountid
+        """, accountid=accountid)
+        print(share)
+        if share[0]["share"] != "": # 與他人共享
+            return apology("TODO >>>>> SENT REQUEST TO SHARE", 403)
+        
+        db.execute("""DELETE from account WHERE id = :accountid""",
+                accountid=accountid
+                )    
+        flash("Deleted Successfully!")
+        return redirect("/journalentry") 
+    else:
+        flash("check the status of account")
+        print("check the status of account")
+        print(request.form.get("delete"))    
+        return redirect("/journalentry")
+       
+       
+# 刪除歷史交易，有朋友需要使用通知
+@app.route("/deleteentry", methods=["GET", "POST"])
+def deleteentry(): # 必須提醒好友
+    if  request.form.get("delete"):
+        entryid=request.form['delete']
+        print("\n")
+        print("------DELETE TRANSACTION------")
+        print(entryid)
+        
+        
+        # 該分錄是否與他人共享
+        """Show history of transactions"""
+        share = db.execute("""
+            SELECT share
+            FROM transactions
+            WHERE id =:entryid
+        """, entryid=entryid)
+        if share[0]["share"] != "":
+            return apology("TODO >>>>> SENT REQUEST TO SHARE", 403)
+        
+        db.execute("""DELETE from transactions WHERE id = :entryid""",
+                entryid=entryid
+                )    
+        flash("Deleted Successfully!")
+        return history()  
+    else:
+        flash("check the status of transaction")
+        print("check the status of transaction")   
+        return history()   
  
-        #不可加自己為好友
-        if friendname == session["user_name"]:
-            return apology("cannot add yourself", 403)
-        
-        #是否在users database中
-        rows = db.execute("""SELECT username FROM users WHERE username = :friendname""",
-                          friendname=friendname)
-        
-        #確認users database是否有該成員
-        print("確認users database是否有該成員")
-        print(rows)
-        if len(rows) != 1:
-            return apology("invalid username", 403)
-        
-        #是否在自己的friends database中
-        rows_friend = db.execute("SELECT username, status FROM friends WHERE user_id = :user_id AND username = :friendname",
-                          user_id=session["user_id"],
-                          friendname=friendname
-                          )
-        
-        
-        #如果好友資料找不到，代表尚未新增
-        print("如果好友資料找不到，代表尚未新增")
-        print(rows_friend)          
-        if len(rows_friend) < 1:
-            
-            # 自己將送出好友邀請
-            # 用自己的id搭配好友名稱(好友名稱已UNIQUE)
-            # 加入好友資料庫且status顯示requested
-            db.execute("""INSERT INTO friends (user_id,username,status) VALUES (:user_id,:username,:status) """,
-                user_id = session["user_id"],
-                username=friendname,
-                status='Requested'
-                )
-            """Show friend list"""
-            friends = db.execute("""
-                SELECT username, status 
-                FROM friends
-                WHERE user_id = :user_id
-            """, user_id=session["user_id"])
-            flash("Sent Successfully!")         
-            
-            
-            # 對方將收到好友邀請
-            # 注意：換角度思考 - 找自己的名字是否在別人的資料庫
-            """Show friendrequest list"""
-            friendrequests = db.execute("""
-                SELECT users.username
-                FROM friends
-                JOIN users
-                ON users.id=friends.user_id
-                WHERE friends.username =:username and friends.status = :status 
-            """, username=session["user_name"], status="Requested"
-            )
-            print("列印出哪些待核准朋友")            
-            print(friendrequests)
-            return render_template("friend.html", friends=friends, friendrequests=friendrequests)
-                    
-        #好友已存在friend database中
-        else:
-            return apology("Friend already exised or still pending", 403)
-    # request.method == "GET"         
+# 刪除朋友，應該不會刪除掉共享會計科目及歷史交易        
+@app.route("/deletefriend", methods=["GET", "POST"])
+def deletefriend():
+    if  request.form.get("delete"):
+        friendid=request.form['delete']
+        print("\n")
+        print("------DELETE FRIEND------")
+        print(friendid)  
+        db.execute("""DELETE from friends WHERE id = :friendid""",
+                friendid=friendid
+                )    
+        flash("Deleted Successfully!")
+        return redirect("/friend") 
     else:
-        # 在下方直接顯示資料表
-        """Show friend list"""
-        friends = db.execute("""
-            SELECT username, status 
-            FROM friends
-            WHERE user_id =:user_id
-        """, user_id=session["user_id"])
-        print("列印出所有朋友")            
-        print(friends)
-        
-        # 對方將收到好友邀請
-        # 注意：換角度思考 - 找自己的名字是否在別人的資料庫
-        """Show friendrequest list"""
-        friendrequests = db.execute("""
-            SELECT users.username
-            FROM friends
-            JOIN users
-            ON users.id=friends.user_id
-            WHERE friends.username =:username and friends.status = :status 
-        """, username=session["user_name"], status="Requested"
-        )        
-        print("列印出哪些待核准朋友")            
-        print(friendrequests)
-        
-        # 若無好友資料
-        if len(friends) < 0:
-            friends = [{'username': 'NONE', 'status': 'Sent a friend request first'}]
-            return render_template("friend.html", friends=friends, friendrequests=friendrequests)
-        # 有好友資料，顯示好友資料
-        else:
-            return render_template("friend.html", friends=friends, friendrequests=friendrequests) 
+        flash("check the status of friend")
+        print("check the status of friend")     
+        return redirect("/friend")     
 
-
-#################
-# 修改會計科目餘
-#################
-# 尚未開始
-# 刪除會計科目，已做分錄不行刪
-# 刪除歷史交易
-# 刪除朋友
-@app.route("/balance", methods=["GET", "POST"])
-@login_required
-def test():
-    # 預期內容：
-        # html使用彈出視窗
-        # 顯示會計科目新增、變動、刪除、修改金額
-        # 詢問是否同意
-        # 若不同意發送新訊息給對方
-        # 若同意必須做分錄入帳
-        # 呼叫確認雙方餘額，顯示餘額相符
-        # 影響add_account、journalentry
-    if request.method == "POST":
-        return render_template("index.html")
-    else:
-        return render_template("index.html")
 
 
 ##############################################################################################

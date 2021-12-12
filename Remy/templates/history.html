@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block main %}
+<form action = "/deleteentry" method = "post">
     <table class="table table-striped">
         <thead>
             <tr>
@@ -12,7 +13,8 @@
                 <th>Credit</th>
                 <th>Amount</th>
                 <th>Transacted</th> 
-                <th>Note</th> 
+                <th>Note</th>
+                <th>Delete</th>
              </tr>    
         </thead>
         <tbody>
@@ -23,9 +25,12 @@
                 <td id="amount">{{transaction["amount"]}}</td>
                 <td>{{transaction["transacted"]}}</td>
                 <td>{{transaction["note"]}}</td>
+                <td>
+                    <button name = "delete" value = "{{transaction["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
+</form>
 {% endblock %}

@@ -23,4 +23,130 @@
             <a class="nav-link" href="/add_account">Need to create a new account first?</a>
         </div>
     </form>
+    <form action="/deleteaccount" method="post">
+        <br></br>
+        <hr class="style-one-line" />
+        <br></br>
+        <h5 class="navbar navbar-expand-md navbar-light">EXISTING ACCOUNTS</h5>
+        <div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th id="name">Name</th>
+                        <th id="amount">Amount</th>
+                        <th>Share</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for A_balance in A_balances %}
+                    <tr>
+                        <td>{{A_balance["type"]}}</td>
+                        <td id="name">{{A_balance["name"]}}</td>
+                        <td id="amount">{{A_balance["amount"]}}</td>
+                        <td>{{A_balance["share"]}}</td>
+                        <td>
+                            <button name = "delete" value = "{{A_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% for L_balance in L_balances %}
+                    <tr>
+                        <td>{{L_balance["type"]}}</td>
+                        <td id="name">{{L_balance["name"]}}</td>
+                        <td id="amount">{{L_balance["amount"]}}</td>
+                        <td>{{L_balance["share"]}}</td>
+                        <td>
+                            <button name = "delete" value = "{{L_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% for R_balance in R_balances %}
+                    <tr>
+                        <td>{{R_balance["type"]}}</td>
+                        <td id="name">{{R_balance["name"]}}</td>
+                        <td id="amount">{{R_balance["amount"]}}</td>
+                        <td>{{R_balance["share"]}}</td>
+                        <td>
+                            <button name = "delete" value = "{{R_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% for E_balance in E_balances %}
+                    <tr>
+                        <td>{{E_balance["type"]}}</td>
+                        <td id="name">{{E_balance["name"]}}</td>
+                        <td id="amount" class="currency">{{E_balance["amount"]}}</td>
+                        <td>{{E_balance["share"]}}</td>
+                        <td>
+                            <button name = "delete" value = "{{E_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+    <br></br>
+    <form action="/approvalornot" method="post">
+        <h5 class="navbar navbar-expand-md navbar-light">ACCOUNTS ASKING FOR YOUR APPROVAL</h5>
+        <div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th id="name">Name</th>
+                        <th id="amount">Amount</th>
+                        <th>Share</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ask_approvalaccount in ask_approvalaccounts %}
+                    <tr>
+                        <td>{{ask_approvalaccount["type"]}}</td>
+                        <td id="name">{{ask_approvalaccount["name"]}}</td>
+                        <td id="amount">{{ask_approvalaccount["amount"]}}</td>
+                        <td>{{ask_approvalaccount["username"]}}</td>
+                        <td>
+                            <button name = "accept" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-success btn-sm">ACCEPT</button>
+                            <button name = "reject" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-secondary btn-sm">REJECT</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+    <br></br>
+    <form action="/deleteaccount" method="post">
+        <h5 class="navbar navbar-expand-md navbar-light">ACCOUNTS WAITING FOR FRIENDS' APPROVALS</h5>
+        <div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th id="name">Name</th>
+                        <th id="amount">Amount</th>
+                        <th>Share</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for wait_approvalaccount in wait_approvalaccounts %}
+                    <tr>
+                        <td>{{wait_approvalaccount["type"]}}</td>
+                        <td id="name">{{wait_approvalaccount["name"]}}</td>
+                        <td id="amount">{{wait_approvalaccount["amount"]}}</td>
+                        <td>{{wait_approvalaccount["share"]}}</td>
+                        <td>
+                            <button name="delete" value="{{wait_approvalaccount[id]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
 {% endblock %}
