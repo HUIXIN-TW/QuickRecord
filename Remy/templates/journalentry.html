@@ -47,7 +47,7 @@
                         <td id="amount">{{A_balance["amount"]}}</td>
                         <td>{{A_balance["share"]}}</td>
                         <td>
-                            <button name = "delete" value = "{{A_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button name = "delete" value = "{{A_balance["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -58,7 +58,7 @@
                         <td id="amount">{{L_balance["amount"]}}</td>
                         <td>{{L_balance["share"]}}</td>
                         <td>
-                            <button name = "delete" value = "{{L_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button name = "delete" value = "{{L_balance["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -69,7 +69,7 @@
                         <td id="amount">{{R_balance["amount"]}}</td>
                         <td>{{R_balance["share"]}}</td>
                         <td>
-                            <button name = "delete" value = "{{R_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button name = "delete" value = "{{R_balance["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -80,7 +80,7 @@
                         <td id="amount" class="currency">{{E_balance["amount"]}}</td>
                         <td>{{E_balance["share"]}}</td>
                         <td>
-                            <button name = "delete" value = "{{E_balance['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button name = "delete" value = "{{E_balance["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -141,7 +141,7 @@
                         <td id="amount">{{wait_approvalaccount["amount"]}}</td>
                         <td>{{wait_approvalaccount["share"]}}</td>
                         <td>
-                            <button name="delete" value="{{wait_approvalaccount[id]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button name = "delete" value = "{{wait_approvalaccount["id"]}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}

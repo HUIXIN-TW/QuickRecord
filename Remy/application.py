@@ -13,8 +13,8 @@ from helpers import apology, login_required, usd
 
 # 新增日期功能
 import time
-import numpy as np
-import matplotlib.pyplot as plt #pip install matplotlib first
+#import numpy as np
+#import matplotlib.pyplot as plt #pip install matplotlib first
 
 
 # Configure application
@@ -75,7 +75,9 @@ db = SQL("sqlite:///finance.db")
 # @app.route("/") - 修改總結呈現最後的資料彙總
 @app.route("/")
 @login_required
-def index():   
+def index():
+    # 相同方式篩選
+    # 但選擇大於0的會計科目顯在在首頁面   
     A_balances, L_balances, R_balances, E_balances, balance, profit = allaccount_gt0()
     return render_template("index.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit)
 
@@ -147,7 +149,8 @@ def add_account():
                 flash("Sent Successfully!")
             else: #不分享帳戶
                 flash("Add Successfully!")
-            print("Now Running add_account()")
+            print("\n")
+            print("------Now Running add_account()------")
             print("新增會計科目 {name}".format(name=name))
             return render_template("add_account.html")
         #account已存在account database中
@@ -181,9 +184,7 @@ def journalentry():
         note = request.form.get("note")
         
         
-        ################
         # 確認是否有該科目
-        ################
         rows_debit = db.execute("SELECT type, name, amount FROM account WHERE name = :debit and user_id=:user_id",
                          user_id=session["user_id"],
                          debit=debit
@@ -205,9 +206,7 @@ def journalentry():
             return render_template("add_account.html")
         
         
-        #############
         # 更新借貸金額
-        #############
         # 從資料庫拉出借方科目金額
         debittype = rows_debit[0]["type"]
         debitamount = rows_debit[0]['amount']
@@ -240,14 +239,13 @@ def journalentry():
                 credit=credit,
                 updated_creditamount=updated_creditamount, 
                 user_id=session["user_id"])
-        print("Now Running jornalentry() 更新會計科目資料庫餘額")
+        print("\n")
+        print("------Now Running jornalentry() 更新會計科目資料庫餘額------")
         print("更新借方金額 {rows_debit}: {updated_debitamount}".format(rows_debit=rows_debit, updated_debitamount=updated_debitamount))
         print("更新貸方金額 {rows_credit}: {updated_creditamount}".format(rows_credit=rows_credit, updated_creditamount=updated_creditamount))    
         
         
-        ################
         # 加入歷史交易分錄
-        ################
         db.execute(""" 
             INSERT INTO transactions
                 (user_id, debit, credit, amount, note) 
@@ -260,7 +258,8 @@ def journalentry():
                 note = note
             )
         flash("You are a Good Accountant!")
-        print("Now Running jornalentry() 成功加入歷史交易分錄")
+        print("\n")
+        print("------Now Running jornalentry() 成功加入歷史交易分錄------")
         return redirect("/history")
     
     else:
@@ -290,9 +289,7 @@ def journalentry():
         return render_template("journalentry.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit, ask_approvalaccounts=ask_approvalaccounts, wait_approvalaccounts=wait_approvalaccounts)
 
  
-#########
 # 歷史交易
-#########
 @app.route("/history")
 @login_required
 def history():
@@ -305,8 +302,10 @@ def history():
     # 金額格式化
     for i in range(len(transactions)):
         transactions[i]["amount"] = usd(transactions[i]["amount"])
-    print("Now Running history() 成功查詢歷史交易分錄")
-    print(transactions)
+    print("\n")
+    print("------Now Running history() 成功查詢歷史交易分錄------")
+    for transaction in transactions:
+        print(transaction)
     return render_template("history.html", transactions=transactions)
 
 
@@ -326,7 +325,8 @@ def balance():
         name = request.form.get("name")
         date = request.form.get("date") + " 23:59:59"
         today = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        print("Now Running balance() 正在讀取日期")
+        print("\n")
+        print("------Now Running balance() 正在讀取日期------")
         print("輸入日期 {date}".format(date=date))
         print("現在日期 {today}".format(today=today))
         # 查詢是否存在會計科目資料庫中，並取得現在的餘額
@@ -341,7 +341,8 @@ def balance():
         amount = rows_account[0]['amount']
         initial = rows_account[0]['initial']
         note = rows_account[0]["note"]
-        print("Now Running balance() 成功查詢目前會計科目餘額")
+        print("\n")
+        print("------Now Running balance() 成功查詢目前會計科目餘額------")
         print("{rows_account} on {date}".format(rows_account=rows_account, date=date))
         print("{name} 起始: {initial} 餘額: {amount}".format(name=name, initial=initial, amount=amount))
         
@@ -646,8 +647,8 @@ def approvalornot():
         sharestatus='Shared'
         
         # 自己加入
-        name=accountdata["name"].split(".")
-        name=name[-1] + "." + session["user_name"]
+        accountname, friendname=accountdata["name"].split(".")
+        name=accountname + "." + session["user_name"]
         db.execute("""INSERT INTO account (user_id,type,name,share,sharestatus,note,initial,amount) 
                    VALUES (:user_id,:type,:name,:share,:sharestatus,:note,:initial,:amount)""",
                    user_id=session["user_id"],
@@ -666,8 +667,8 @@ def approvalornot():
             sharestatus=sharestatus
             )
         flash("Approved Successfully!")
-        return render_template("journalentry.html")
-
+        return redirect("/journalentry")
+    
     elif request.form.get("reject"):
         accountdata=eval(request.form['reject'])
         print("\n")
@@ -689,11 +690,11 @@ def approvalornot():
                    )
         
         flash("Removed!")
-        return render_template("journalentry.html")
-
+        return redirect("/journalentry")
+    
     else:
         print("Check the status of shared account")
-        return render_template("journalentry.html")
+        return redirect("/journalentry")
     
 
 # helper function for friend()
@@ -783,16 +784,20 @@ def friendlist():
             print("Check the status of {username} friends").format(username=username)
     print("\n")
     print('------原始清單------')
-    print(friends)
+    for friend in friends:
+        print(friend)
     print("\n")    
     print('------已接受的朋友清單------')
-    print(acceptfriends)
+    for acceptfriend in acceptfriends:
+        print(acceptfriend)
     print("\n")
     print('------已送出朋友邀請------')
-    print(requestfriends)
+    for requestfriend in requestfriends:
+        print(requestfriend)
     print("\n")           
     print('------已被拒絕的朋友------')
-    print(rejectfriends)            
+    for rejectfriend in rejectfriends:
+        print(rejectfriend)          
 
 
     # 別人的資料庫
@@ -816,37 +821,38 @@ def friendlist():
 # helper function for delete items
 # 刪除會計科目，應該不會刪除掉交易紀錄，但是彙總或表格會變得很怪
 @app.route("/deleteaccount", methods=["GET", "POST"])
+@login_required
 def deleteaccount():
-    if  request.form.get("delete"):
-        accountid=request.form['delete']
+    if request.form.get("delete"):
+        accountid=request.form["delete"]
         print("\n")
         print("------DELETE ACCOUNT------")
         print(accountid)  
         
         # 該會計科目是否與他人共享
-        share = db.execute("""
-            SELECT share
+        sharestatus = db.execute("""
+            SELECT sharestatus
             FROM account
             WHERE id =:accountid
         """, accountid=accountid)
-        print(share)
-        if share[0]["share"] != "": # 與他人共享
+        # share[0]["share"] != ""
+        if sharestatus == "Shared": # 與他人共享
             return apology("TODO >>>>> SENT REQUEST TO SHARE", 403)
         
         db.execute("""DELETE from account WHERE id = :accountid""",
                 accountid=accountid
                 )    
         flash("Deleted Successfully!")
-        return redirect("/journalentry") 
+        return redirect("/journalentry")        
     else:
         flash("check the status of account")
-        print("check the status of account")
-        print(request.form.get("delete"))    
+        print("check the status of account")  
         return redirect("/journalentry")
        
        
 # 刪除歷史交易，有朋友需要使用通知
 @app.route("/deleteentry", methods=["GET", "POST"])
+@login_required
 def deleteentry(): # 必須提醒好友
     if  request.form.get("delete"):
         entryid=request.form['delete']
@@ -877,9 +883,10 @@ def deleteentry(): # 必須提醒好友
  
 # 刪除朋友，應該不會刪除掉共享會計科目及歷史交易        
 @app.route("/deletefriend", methods=["GET", "POST"])
+@login_required
 def deletefriend():
     if  request.form.get("delete"):
-        friendid=request.form['delete']
+        friendid=request.form["delete"]
         print("\n")
         print("------DELETE FRIEND------")
         print(friendid)  
@@ -888,6 +895,8 @@ def deletefriend():
                 )    
         flash("Deleted Successfully!")
         return redirect("/friend") 
+    elif request.form.get("share"):
+        return redirect("/add_account")
     else:
         flash("check the status of friend")
         print("check the status of friend")     

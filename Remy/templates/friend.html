@@ -15,7 +15,6 @@
     <hr class="style-one-line" />
     <br></br>
     <div>
-    <form action = "/deletefriend" method = "post">
         <table class="table table-striped">
             <thead>
                 <tr>
@@ -27,15 +26,16 @@
                 {% for acceptfriend in acceptfriends %}
                 <tr>
                     <td>{{acceptfriend['username']}}</td>
+                    <form action = "/deletefriend" method = "post">
                     <td>
-                        <a  href="/add_account"><button name = "share" value = "{{acceptfriend['id']}}" type="submit" class="btn btn-info btn-sm">Share An Account</button></a>
+                        <button name = "share" value = "{{acceptfriend['id']}}" type="submit" class="btn btn-info btn-sm">Share An Account</button></a>
                         <button name = "delete" value = "{{acceptfriend['id']}}" type="submit" class="btn btn-danger btn-sm">Delete</button>
                     </td>
+                    </form>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </form>
     </div>
     <br></br>
     <h5 class="navbar navbar-expand-md navbar-light">WHO INVITE YOU</h5>
