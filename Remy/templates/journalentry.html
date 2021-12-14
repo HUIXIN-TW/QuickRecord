@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block main %}
+    <h5>Journal Entry</h5>
     <form action="/journalentry" method="post">
         <div class="form-group">
             <input autocomplete="off" placeholder="Debit Account Name" class="form-control"  autofocus name="debit" type="text">
@@ -89,7 +90,6 @@
         </div>
     </form>
     <br></br>
-    <form action="/approvalornot" method="post">
         <h5 class="navbar navbar-expand-md navbar-light">ACCOUNTS ASKING FOR YOUR APPROVAL</h5>
         <div>
             <table class="table table-striped">
@@ -110,15 +110,16 @@
                         <td id="amount">{{ask_approvalaccount["amount"]}}</td>
                         <td>{{ask_approvalaccount["username"]}}</td>
                         <td>
-                            <button name = "accept" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-success btn-sm">ACCEPT</button>
-                            <button name = "reject" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-secondary btn-sm">REJECT</button>
+                            <form action="/approveornot" method="post">
+                                <button name = "approve" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-success btn-sm">APPROVE</button>
+                                <button name = "reject" value = "{{ask_approvalaccount}}" type="submit" class="btn btn-secondary btn-sm">REJECT</button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </form>
     <br></br>
     <form action="/deleteaccount" method="post">
         <h5 class="navbar navbar-expand-md navbar-light">ACCOUNTS WAITING FOR FRIENDS' APPROVALS</h5>
