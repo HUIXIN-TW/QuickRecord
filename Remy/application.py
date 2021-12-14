@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 import os
 
 from cs50 import SQL
@@ -19,6 +20,8 @@ import time
 
 # Configure application
 # python設定配置為flask
+# $env:FLASK_APP = "application"
+# flask run
 app = Flask(__name__)
 
 
@@ -117,23 +120,28 @@ def add_account():
             share=request.form.get("share") # 分享給的好友名字
             sharestatus='None' # 假設為None，不分享給其他人
             
-            #用自己的id搭配accounts名稱(accounts名稱已UNIQUE，且分辦大小寫)
-            db.execute("""INSERT INTO accounts (user_id,type,name,amount,note,share,sharestatus,initial,asker_id) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:initial,:asker_id) """,
-            user_id=session["user_id"], # 目前使用者
-            type=request.form.get("type"), # 會計類別
-            name=name, # 會計科目
-            amount=request.form.get("amount"), # 輸入金額
-            note=request.form.get("note"), # 輸入附註
-            share=share, # 分享給的好友名字
-            sharestatus=sharestatus, # 因為是否share with friend而不同狀態
-            initial=request.form.get("amount"), # 起始金額
-            asker_id=session["user_id"], # 鎖住分錄創立者
-            )
-            
             if share != "": # 不等於空白代表分享該帳戶
-                shareaccount(name, share) # 聯結到helper function
+                try:
+                    share, sharestatus = shareaccount(name, share) # 聯結到helper function
+                    print("Share with {share}, Status {sharestatus}".format(share=share, sharestatus=sharestatus))
+                except:
+                    print("No Friend Error, Fail to share the account... waiting for acceptance")
+                    return apology("Not friend yet", 403)
             else: #不分享帳戶
+                #用自己的id搭配accounts名稱(accounts名稱已UNIQUE，且分辦大小寫)
+                db.execute("""INSERT INTO accounts (user_id,type,name,amount,note,share,sharestatus,initial,asker_id) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:initial,:asker_id) """,
+                user_id=session["user_id"], # 目前使用者
+                type=request.form.get("type"), # 會計類別
+                name=name, # 會計科目
+                amount=request.form.get("amount"), # 輸入金額
+                note=request.form.get("note"), # 輸入附註
+                share=share, # 分享給的好友名字
+                sharestatus=sharestatus, # 因為是否share with friend而不同狀態
+                initial=request.form.get("amount"), # 起始金額
+                asker_id=session["user_id"], # 鎖住分錄創立者
+                )
                 flash("Add Successfully!")
+                print("Share with {share}, Status {sharestatus}".format(share=share, sharestatus=sharestatus))
             print("\n")
             print("------Now Running add_account()------")
             print("新增會計科目 {name}".format(name=name))
@@ -166,77 +174,91 @@ def journalentry():
         credit = request.form.get("credit")
         amount = int(request.form.get("amount"))
         note = request.form.get("note")
-        
-        
-        # 確認是否有該科目
-        rows_debit = db.execute("SELECT type, name, amount, share, sharestatus, shareaccountid FROM accounts WHERE name = :debit and user_id=:user_id",
-                         user_id=session["user_id"],
-                         debit=debit
-                         )
-        rows_credit = db.execute("SELECT type, name, amount, share, sharestatus, shareaccountid FROM accounts WHERE name = :credit and user_id=:user_id",
-                         user_id=session["user_id"],
-                         credit=credit
-                         )
-        print("使用者會計科目資料庫搜尋結果")
-        print(rows_debit, rows_credit)            
-        #確認accounts.db是否有該account
-        #找到資料 >>> [{'name': 'cash'}]
-        #找不到資料 >>> []
-        if len(rows_debit) != 1:
-            flash("please add new debit account")
-            return render_template("add_account.html")
-        if len(rows_credit) != 1:
-            flash("please add new credit account")
-            return render_template("add_account.html")
-        
-        
-        # 更新借貸金額
-        # 從資料庫拉出借方科目金額
-        debittype = rows_debit[0]["type"]
-        debitamount = rows_debit[0]['amount']
-        debitshare = rows_debit[0]["share"]
-        debitsharestatus = rows_debit[0]["sharestatus"]
-        debitshareaccountid = rows_debit[0]["shareaccountid"]
-        
-        # 從資料庫拉出貸方科目金額
-        credittype = rows_credit[0]["type"]
-        creditamount = rows_credit[0]['amount']
-        creditshare = rows_credit[0]["share"]
-        creditsharestatus = rows_credit[0]["sharestatus"]
-        creditshareaccountid = rows_credit[0]["shareaccountid"]
-        
-        # 確認借方是否足夠
-        # 禁止借方科目為負
-        if debittype == "A" or debittype == "E":
-            updated_debitamount = debitamount + amount
-        else:
-            updated_debitamount = debitamount - amount
-        if updated_debitamount < 0:
-            return apology("debit account cannot be negative")
-        # 確認貸方是否足夠
-        # 禁止貸方科目為負
-        if credittype == "A" or credittype == "E":
-            updated_creditamount = creditamount - amount
-        else:
-            updated_creditamount = creditamount + amount
-        if updated_creditamount < 0:
-            return apology("credit account cannot be negative")
-        # 更新借方金額
-        db.execute("UPDATE accounts SET amount = :updated_debitamount WHERE name = :debit and user_id=:user_id",
-                debit=debit,
-                updated_debitamount=updated_debitamount, 
-                user_id=session["user_id"])
-        # 更新貸方金額
-        db.execute("UPDATE accounts SET amount = :updated_creditamount WHERE name = :credit and user_id=:user_id",
-                credit=credit,
-                updated_creditamount=updated_creditamount, 
-                user_id=session["user_id"])
+        delete = False # 與delete共用同一個功能update account
+        updateaccount(debit, credit, amount, note, delete) # 與delete共用同一個功能update account
+        return redirect("/history")
+    
+    else: # GET
+        A_balances, L_balances, R_balances, E_balances, balance, profit = allaccounts_ge0()
+        wait_approvalaccounts  = db.execute("""SELECT * 
+                                       FROM accounts
+                                       WHERE user_id=:user_id and sharestatus=:sharestatus""",
+                                       user_id=session["user_id"], # 請求對方授權的會計科目
+                                       sharestatus="Waiting for approval")
+        ask_approvalaccounts  = db.execute("""SELECT * 
+                                       FROM accounts
+                                       WHERE user_id=:user_id and sharestatus=:sharestatus and asker_id!=:user_id""",
+                                       user_id=session["user_id"], # 要求本人授權的會計科目
+                                       sharestatus="Fill the info")
         print("\n")
-        print("------Now Running jornalentry() 更新會計科目資料庫餘額------")
-        print("更新借方金額 {rows_debit}: {updated_debitamount}".format(rows_debit=rows_debit, updated_debitamount=updated_debitamount))
-        print("更新貸方金額 {rows_credit}: {updated_creditamount}".format(rows_credit=rows_credit, updated_creditamount=updated_creditamount))    
+        print("------列印出所有要求本人授權的會計科目------")
+        for ask_approvalaccount in ask_approvalaccounts:
+            print(ask_approvalaccount)
+        print("\n")
+        print("------列印出所有請求對方授權的會計科目------")
+        for wait_approvalaccount in wait_approvalaccounts:
+            print(wait_approvalaccount)
+        return render_template("journalentry.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit, ask_approvalaccounts=ask_approvalaccounts, wait_approvalaccounts=wait_approvalaccounts)
+
+def updateaccount(debit, credit, amount, note="", delete=True):
+    # 確認是否有該科目
+    rows_debit = db.execute("SELECT type, name, amount, share, sharestatus, shareaccountid FROM accounts WHERE name = :debit and user_id=:user_id",
+                        user_id=session["user_id"],
+                        debit=debit
+                        )
+    rows_credit = db.execute("SELECT type, name, amount, share, sharestatus, shareaccountid FROM accounts WHERE name = :credit and user_id=:user_id",
+                        user_id=session["user_id"],
+                        credit=credit
+                        )
+    print("使用者會計科目資料庫搜尋結果")
+    print(rows_debit, rows_credit)            
+    #確認accounts.db是否有該account
+    #找到資料 >>> [{'name': 'cash'}]
+    #找不到資料 >>> []
+    if len(rows_debit) != 1:
+        flash("please add new debit account")
+        return render_template("add_account.html")
+    if len(rows_credit) != 1:
+        flash("please add new credit account")
+        return render_template("add_account.html")
+    
+    # 更新借貸金額
+    # 從資料庫拉出借方科目金額
+    debittype = rows_debit[0]["type"]
+    debitamount = rows_debit[0]['amount']
+    debitshare = rows_debit[0]["share"]
+    debitsharestatus = rows_debit[0]["sharestatus"]
+    debitshareaccountid = rows_debit[0]["shareaccountid"]
+    
+    # 從資料庫拉出貸方科目金額
+    credittype = rows_credit[0]["type"]
+    creditamount = rows_credit[0]['amount']
+    creditshare = rows_credit[0]["share"]
+    creditsharestatus = rows_credit[0]["sharestatus"]
+    creditshareaccountid = rows_credit[0]["shareaccountid"]
+    
+    # 調整刪除科目的金額
+    if delete == True:
+        amount = amount * (-1)
+    
+    # 確認借方是否足夠
+    # 禁止借方科目為負
+    if debittype == "A" or debittype == "E":
+        updated_debitamount = debitamount + amount
+    else:
+        updated_debitamount = debitamount - amount
+    if updated_debitamount < 0:
+        return apology("debit account cannot be negative")
+    # 確認貸方是否足夠
+    # 禁止貸方科目為負
+    if credittype == "A" or credittype == "E":
+        updated_creditamount = creditamount - amount
+    else:
+        updated_creditamount = creditamount + amount
+    if updated_creditamount < 0:
+        return apology("credit account cannot be negative")
         
-        
+    if delete == False:
         # 加入歷史交易分錄
         message_id = db.execute(""" 
             INSERT INTO transactions
@@ -262,31 +284,24 @@ def journalentry():
             flash("You are a Good Accountant!")
         print("\n")
         print("------Now Running jornalentry() 成功加入歷史交易分錄------")
-        return redirect("/history")
+        print("分錄編號 {message_id}".format(message_id=message_id))
+        
+    # 更新借方金額
+    db.execute("UPDATE accounts SET amount = :updated_debitamount WHERE name = :debit and user_id=:user_id",
+            debit=debit,
+            updated_debitamount=updated_debitamount, 
+            user_id=session["user_id"])
+    # 更新貸方金額
+    db.execute("UPDATE accounts SET amount = :updated_creditamount WHERE name = :credit and user_id=:user_id",
+            credit=credit,
+            updated_creditamount=updated_creditamount, 
+            user_id=session["user_id"])
+    print("\n")
+    print("------Now Running jornalentry() 更新會計科目資料庫餘額------")
+    print("更新借方金額 {rows_debit}: {updated_debitamount}".format(rows_debit=rows_debit, updated_debitamount=updated_debitamount))
+    print("更新貸方金額 {rows_credit}: {updated_creditamount}".format(rows_credit=rows_credit, updated_creditamount=updated_creditamount))    
     
-    else: # GET
-        A_balances, L_balances, R_balances, E_balances, balance, profit = allaccounts_ge0()
-        wait_approvalaccounts  = db.execute("""SELECT * 
-                                       FROM accounts
-                                       WHERE user_id=:user_id and sharestatus=:sharestatus""",
-                                       user_id=session["user_id"], # 請求對方授權的會計科目
-                                       sharestatus="Waiting for approval")
-        ask_approvalaccounts  = db.execute("""SELECT * 
-                                       FROM accounts
-                                       WHERE user_id=:user_id and sharestatus=:sharestatus and asker_id!=:user_id""",
-                                       user_id=session["user_id"], # 要求本人授權的會計科目
-                                       sharestatus="Fill the info")
-        print("\n")
-        print("------列印出所有要求本人授權的會計科目------")
-        for ask_approvalaccount in ask_approvalaccounts:
-            print(ask_approvalaccount)
-        print("\n")
-        print("------列印出所有請求對方授權的會計科目------")
-        for wait_approvalaccount in wait_approvalaccounts:
-            print(wait_approvalaccount)
-        return render_template("journalentry.html", A_balances=A_balances, L_balances=L_balances, R_balances=R_balances, E_balances=E_balances, balance=balance, profit=profit, ask_approvalaccounts=ask_approvalaccounts, wait_approvalaccounts=wait_approvalaccounts)
 
- 
 # 歷史交易
 @app.route("/history")
 @login_required
@@ -374,7 +389,7 @@ def balance():
         
         # 總整交易金額
         periodamount=0
-        if type == "A" or "E":
+        if type == "A" or type == "E":
             periodamount = usd(float(d_amount) - float(c_amount) + float(initial))
         else:
             periodamount = usd(float(c_amount) - float(d_amount) + float(initial))
@@ -668,13 +683,15 @@ def shareaccount(name, share):
     print("\n")
     print("------Now Run shareaccount(name, share)------")
     # 搜尋好友資料
-    rows_friends = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username",
-                    user_id = session["user_id"],
-                    username=share)
+    rows_friends = db.execute("SELECT username FROM friends WHERE user_id = :user_id AND username = :username AND status = :status",
+                    user_id=session["user_id"],
+                    username=share,
+                    status="Accepted")
+    print("Share with {rows_friends}".format(rows_friends=rows_friends))
     
-    # 如果好友資料找不到，代表尚未新增         
-    if len(rows_friends) != 1:
-        return apology("Add friend first", 403)
+    # 如果好友資料找不到，代表尚未新增        
+    if rows_friends == []:
+        raise BaseException("No Friend Error")
     
     # 搜尋好友id
     friendid = db.execute("SELECT id FROM users WHERE username = :username",
@@ -684,12 +701,20 @@ def shareaccount(name, share):
     # 修改分享狀態，顯示等待回應
     sharestatus='Waiting for approval'
     
-    # 搜尋自己會計科目id
-    accountid = db.execute("SELECT id FROM accounts WHERE name=:name and user_id=:user_id",
-        name=name,
-        user_id=session["user_id"]
-        )
-    print("自己會計科目ID {accountid}".format(accountid=accountid[0]["id"]))
+    #用自己的id搭配accounts名稱(accounts名稱已UNIQUE，且分辦大小寫)
+    accountid = db.execute("""INSERT INTO accounts (user_id,type,name,amount,note,share,sharestatus,initial,asker_id) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:initial,:asker_id) """,
+                    user_id=session["user_id"], # 目前使用者
+                    type=request.form.get("type"), # 會計類別
+                    name=name, # 會計科目
+                    amount=request.form.get("amount"), # 輸入金額
+                    note=request.form.get("note"), # 輸入附註
+                    share=share, # 分享給的好友名字
+                    sharestatus=sharestatus, # 因為是否share with friend而不同狀態
+                    initial=request.form.get("amount"), # 起始金額
+                    asker_id=session["user_id"], # 鎖住分錄創立者
+                    )
+    print("自己會計科目ID {accountid}".format(accountid=accountid))
+    
     
     # 新增對方會計科目資料
     counterpartyid = db.execute("""INSERT INTO accounts (user_id,type,name,amount,note,share,sharestatus,shareaccountid,initial,asker_id) VALUES (:user_id,:type,:name,:amount,:note,:share,:sharestatus,:shareaccountid,:initial,:asker_id) """,
@@ -700,7 +725,7 @@ def shareaccount(name, share):
         note=request.form.get("note"), # 輸入附註，待更新
         share=session["user_name"], # 輸入自己的名字
         sharestatus="Fill the info", # 因為是否share with friend而不同狀態，對方待填寫
-        shareaccountid=accountid[0]["id"], # 填入自己的會計科目ID
+        shareaccountid=accountid, # 填入自己的會計科目ID
         initial=request.form.get("amount"), # 起始金額
         asker_id=session["user_id"]
         )
@@ -708,15 +733,14 @@ def shareaccount(name, share):
     print("對方會計科目ID {counterpartyid}".format(counterpartyid=counterpartyid))
         
     # 更新該會計科目資料 
-    db.execute("UPDATE accounts SET share=:share, sharestatus=:sharestatus, shareaccountid=:shareaccountid WHERE id=:id",
-                share=share,
-                sharestatus=sharestatus,
+    db.execute("UPDATE accounts SET shareaccountid=:shareaccountid WHERE id=:id",
                 shareaccountid=counterpartyid,
-                id=accountid[0]["id"], # 填入自己的會計科目ID
+                id=accountid # 填入自己的會計科目ID
                 )
-    print("顯示等待回應，{sharestatus} from {share}".format(sharestatus=sharestatus, share=share))                                
-    flash("Sent Successfully!")
     
+    print("顯示等待回應")                                
+    flash("Sent Successfully!")
+    return share, sharestatus
     
 @app.route("/approveornot", methods=["GET", "POST"])
 @login_required
@@ -1007,7 +1031,7 @@ def deleteaccount():
         """, accountid=accountid)
         # share[0]["share"] != ""
         if sharestatus == "Shared": # 與他人共享
-            return apology("TODO >>>>> SENT REQUEST TO SHARE", 403)
+            return apology("Cannot delete the shared account", 403) # 不可刪除，必須先改變狀態
         
         db.execute("""DELETE from accounts WHERE id = :accountid""",
                 accountid=accountid
@@ -1033,30 +1057,27 @@ def deleteentry(): # 必須提醒好友
         
         # 該分錄是否與他人共享
         """Show history of transactions"""
-        share, debit, credit, amount = db.execute("""
-            SELECT share, debit, credit, amount
+        transaction = db.execute("""
+            SELECT *
             FROM transactions
             WHERE id =:entryid
         """, entryid=entryid)
-        if share[0]["share"] != "":
-            return apology("TODO >>>>> SENT REQUEST TO SHARE", 403)
+        print("------ Share Status------")
+        print("Credit {creditsharestatus}".format(creditsharestatus=transaction[0]["creditsharestatus"]))
+        print("Credit {debitsharestatus}".format(debitsharestatus=transaction[0]["debitsharestatus"]))
+        if transaction[0]["creditsharestatus"] == "Shared" or transaction[0]["debitsharestatus"] == "Shared":
+            return apology("Cannot Delete the History of shared account.", 403)
+        
+        debit=transaction[0]["debit"]
+        credit=transaction[0]["credit"]
+        amount=transaction[0]["amount"]
+        
+        updateaccount(debit, credit, amount, note="", delete=True) # 與journalentry 共用同一個update account function
         
         # 刪除分錄
         db.execute("""DELETE FROM transactions WHERE id = :entryid""",
                 entryid=entryid
                 )
-        
-        # 更新借方金額
-        db.execute("UPDATE accounts SET amount = :amount WHERE name = :debit and user_id=:user_id",
-                debit=debit,
-                updated_debitamount=amount, 
-                user_id=session["user_id"])
-        # 更新貸方金額
-        db.execute("UPDATE accounts SET amount = :amount WHERE name = :credit and user_id=:user_id",
-                credit=credit,
-                amount=amount, 
-                user_id=session["user_id"])
-        
             
         flash("Deleted Successfully!")
         return history()  
