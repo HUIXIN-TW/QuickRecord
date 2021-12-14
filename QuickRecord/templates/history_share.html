@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Shared Account Message
+{% endblock %}
+
+{% block main %}
+    <h5>Shared Account Message</h5>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Account Name</th>
+                <th>Amount</th>
+                <th>Transacted</th> 
+                <th>Note</th>
+             </tr>    
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{transaction["accountname"]}}</td>
+                <td id="amount">{{transaction["amount"]}}</td>
+                <td>{{transaction["transacted"]}}</td>
+                <td>{{transaction["note"]}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

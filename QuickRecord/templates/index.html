@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    My Accounts
+{% endblock %}
+
+{% block main %}
+    <!--資產負債表-->
+    <h1 class="navbar navbar-expand-md navbar-light">BALANCE SHEET</h1>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th id="name">Name</th>
+                <th id="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for A_balance in A_balances %}
+            <tr>
+                <td>{{A_balance["type"]}}</td>
+                <td id="name">{{A_balance["name"]}}</td>
+                <td id="amount">{{A_balance["amount"]}}</td>
+            </tr>
+            {% endfor %}
+            {% for L_balance in L_balances %}
+            <tr>
+                <td>{{L_balance["type"]}}</td>
+                <td id="name">{{L_balance["name"]}}</td>
+                <td id="amount">{{L_balance["amount"]}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!--總結-->
+    <br></br>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th colspan="4"></th>
+                <th>Total Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="4"><em>BALANCE</em></td>
+                <td>{{balance}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <br></br>
+    <hr class="style-one-line" />
+    <br></br>
+    <!--收入支出表-->
+    <h1 class="navbar navbar-expand-md navbar-light">INCOME STATEMENT</h1>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th id="name">Name</th>
+                <th id="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for R_balance in R_balances %}
+            <tr>
+                <td>{{R_balance["type"]}}</td>
+                <td id="name">{{R_balance["name"]}}</td>
+                <td id="amount">{{R_balance["amount"]}}</td>
+            </tr>
+            {% endfor %}
+            {% for E_balance in E_balances %}
+            <tr>
+                <td>{{E_balance["type"]}}</td>
+                <td id="name">{{E_balance["name"]}}</td>
+                <td id="amount">{{E_balance["amount"]}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!--總結-->
+    <br></br>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th colspan="4"></th>
+                <th>Total Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="4"><em>PROFIT(LOSS)</em></td>
+                <td>{{profit}}</td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
