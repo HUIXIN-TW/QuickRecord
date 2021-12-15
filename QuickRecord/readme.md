@@ -1,7 +1,10 @@
-# Purpose
+# QuickRecord
+Video Demo:
+
+## Purpose
 The application is for those who want to record their financial status as an accountant. The user will need to have tbe basic understanding of accounting.
 
-# Features
+## Features
 - View Balance Statement and Income Statement
 - Record Transactions
 - Create Sustomized Acounts
@@ -12,9 +15,10 @@ The application is for those who want to record their financial status as an acc
 - Checkout The Balance of Account On When You Select
 - View The Graph of All Accounts 
 
-# Language used
+## Language used
 - python (Most)
 - javascript
+- SQL
 - css
 - HTML
 
